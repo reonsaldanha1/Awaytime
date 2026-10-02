@@ -4,20 +4,29 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.painterResource
@@ -127,6 +136,17 @@ fun MainScreen(
         WidgetCategoryItem("permissions", "Tracking & Permissions", "Usage Access permission for millisecond precision", R.drawable.ic_shield, PastelPurple)
     )
 
+    val homeScale by animateFloatAsState(
+        targetValue = if (selectedItem != null) 0.94f else 1f,
+        animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing),
+        label = "homeScale"
+    )
+    val homeAlpha by animateFloatAsState(
+        targetValue = if (selectedItem != null) 0.5f else 1f,
+        animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing),
+        label = "homeAlpha"
+    )
+
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -135,6 +155,11 @@ fun MainScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .graphicsLayer {
+                    scaleX = homeScale
+                    scaleY = homeScale
+                    alpha = homeAlpha
+                }
                 .padding(horizontal = 20.dp)
         ) {
             Spacer(modifier = Modifier.height(28.dp))
@@ -190,6 +215,11 @@ fun MainScreen(
             },
             modifier = Modifier
                 .align(Alignment.BottomCenter)
+                .graphicsLayer {
+                    scaleX = homeScale
+                    scaleY = homeScale
+                    alpha = homeAlpha
+                }
                 .padding(bottom = 24.dp)
         )
 
@@ -283,39 +313,40 @@ fun MainScreen(
             )
         }
 
-        // Daily Wellbeing Screen for the first option "Daily Away" (matches Image 2)
-        if (selectedItem?.id == "daily") {
-            DailyWellbeingScreen(
-                data = dailyWellbeingData,
-                onDismiss = { selectedItem = null }
-            )
-        } else if (selectedItem?.id == "weekly") {
-            // Weekly Away Screen for "Weekly Away" (screen time of week & apps used over week)
-            WeeklyAwayScreen(
-                data = weeklyAwayData,
-                onDismiss = { selectedItem = null }
-            )
-        } else if (selectedItem?.id == "customize" || selectedItem?.id == "themes") {
-            // Customize Widget Screen (accent color, font, and minimal black & white)
-            CustomizeWidgetScreen(
-                prefs = prefs,
-                onDismiss = { selectedItem = null }
-            )
-        } else if (selectedItem?.id == "distractions") {
-            // Distractions Screen (notification list & per-app notification blocking)
-            DistractionsScreen(
-                onDismiss = { selectedItem = null }
-            )
-        } else {
-            // Configuration Bottom Sheet for other items
-            selectedItem?.let { item ->
-                ModalBottomSheet(
-                    onDismissRequest = { selectedItem = null },
-                    containerColor = Color(0xFF14161F),
-                    tonalElevation = 8.dp,
-                    shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
-                ) {
-                    WidgetConfigSheetDirect(
+        // Fullscreen pages transition with smooth zoom in animation
+        AnimatedVisibility(
+            visible = selectedItem != null,
+            enter = fadeIn(animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)) +
+                    scaleIn(
+                        initialScale = 0.85f,
+                        transformOrigin = TransformOrigin.Center,
+                        animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)
+                    ),
+            exit = fadeOut(animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing)) +
+                   scaleOut(
+                       targetScale = 0.85f,
+                       transformOrigin = TransformOrigin.Center,
+                       animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing)
+                   )
+        ) {
+            when (selectedItem?.id) {
+                "daily" -> DailyWellbeingScreen(
+                    data = dailyWellbeingData,
+                    onDismiss = { selectedItem = null }
+                )
+                "weekly" -> WeeklyAwayScreen(
+                    data = weeklyAwayData,
+                    onDismiss = { selectedItem = null }
+                )
+                "customize", "themes" -> CustomizeWidgetScreen(
+                    prefs = prefs,
+                    onDismiss = { selectedItem = null }
+                )
+                "distractions" -> DistractionsScreen(
+                    onDismiss = { selectedItem = null }
+                )
+                else -> selectedItem?.let { item ->
+                    GenericConfigPage(
                         item = item,
                         prefs = prefs,
                         todayStats = todayStats,
@@ -352,9 +383,95 @@ fun MainScreen(
                         },
                         onRequestPermission = {
                             openUsageAccessSettings(context)
-                        }
+                        },
+                        onDismiss = { selectedItem = null }
                     )
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun GenericConfigPage(
+    item: WidgetCategoryItem,
+    prefs: WidgetPreferences,
+    todayStats: DailyAwayStats,
+    weeklyStats: WeeklyAwayStats,
+    hasPermission: Boolean,
+    selectedTheme: WidgetTheme,
+    selectedAccent: WidgetAccent,
+    showTimeline: Boolean,
+    showSparkle: Boolean,
+    targetHours: Int,
+    onThemeChange: (WidgetTheme) -> Unit,
+    onAccentChange: (WidgetAccent) -> Unit,
+    onTimelineChange: (Boolean) -> Unit,
+    onSparkleChange: (Boolean) -> Unit,
+    onTargetHoursChange: (Int) -> Unit,
+    onRequestPermission: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    BackHandler { onDismiss() }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF0C0D11))
+    ) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            // Top Bar
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onDismiss) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_arrow_back),
+                        contentDescription = "Back",
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(6.dp))
+
+                Text(
+                    text = item.title,
+                    color = Color.White,
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = (-0.3).sp
+                )
+            }
+
+            // Scrollable Content
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 20.dp, vertical = 10.dp)
+            ) {
+                WidgetConfigSheetDirect(
+                    item = item,
+                    prefs = prefs,
+                    todayStats = todayStats,
+                    weeklyStats = weeklyStats,
+                    hasPermission = hasPermission,
+                    selectedTheme = selectedTheme,
+                    selectedAccent = selectedAccent,
+                    showTimeline = showTimeline,
+                    showSparkle = showSparkle,
+                    targetHours = targetHours,
+                    onThemeChange = onThemeChange,
+                    onAccentChange = onAccentChange,
+                    onTimelineChange = onTimelineChange,
+                    onSparkleChange = onSparkleChange,
+                    onTargetHoursChange = onTargetHoursChange,
+                    onRequestPermission = onRequestPermission
+                )
             }
         }
     }
@@ -365,12 +482,31 @@ fun WidgetConfigCard(
     item: WidgetCategoryItem,
     onClick: () -> Unit
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val cardScale by animateFloatAsState(
+        targetValue = if (isPressed) 0.96f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
+        label = "cardPressScale"
+    )
+
     Surface(
         modifier = Modifier
             .fillMaxWidth()
+            .graphicsLayer {
+                scaleX = cardScale
+                scaleY = cardScale
+            }
             .clip(RoundedCornerShape(20.dp))
             .border(1.dp, CardStroke, RoundedCornerShape(20.dp))
-            .clickable(onClick = onClick),
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            ),
         color = CardDark
     ) {
         Row(
