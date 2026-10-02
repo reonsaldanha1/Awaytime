@@ -67,6 +67,7 @@ class AwayWidgetWeeklyProvider : AppWidgetProvider() {
                 views.setTextViewText(R.id.tv_weekly_total, styleText(weeklyStats.formattedTotal()))
                 views.setTextViewText(R.id.tv_weekly_dates, styleText(weeklyStats.dateRangeLabel))
                 views.setTextViewText(R.id.tv_day_average_value, styleText(weeklyStats.formattedAverage()))
+                views.setTextViewText(R.id.tv_weekly_goal_badge, styleText("DETOX GOAL • ${prefs.targetGoalHours}h/DAY"))
 
                 // Day average pill background
                 if (isMinimal) {

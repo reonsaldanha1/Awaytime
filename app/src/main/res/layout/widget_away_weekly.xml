@@ -105,24 +105,46 @@
         android:scaleType="fitXY"
         android:contentDescription="Weekly Activity Chart" />
 
-    <!-- Pager Dots at bottom (using FrameLayout instead of View) -->
+    <!-- Bottom Detail Bar -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
-        android:gravity="center"
+        android:layout_marginTop="8dp"
+        android:gravity="center_vertical"
         android:orientation="horizontal">
 
-        <FrameLayout
-            android:layout_width="6dp"
-            android:layout_height="6dp"
-            android:background="@drawable/bg_pill_average" />
+        <TextView
+            android:id="@+id/tv_weekly_goal_badge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="DETOX GOAL • 18h/DAY"
+            android:textColor="#80FFFFFF"
+            android:textSize="10.5sp"
+            android:fontFamily="monospace"
+            android:letterSpacing="0.06" />
 
         <FrameLayout
-            android:layout_width="6dp"
-            android:layout_height="6dp"
-            android:layout_marginStart="6dp"
-            android:background="@drawable/bg_pill_average" />
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <FrameLayout
+                android:layout_width="14dp"
+                android:layout_height="4dp"
+                android:background="@drawable/bg_pill_average" />
+
+            <FrameLayout
+                android:layout_width="5dp"
+                android:layout_height="4dp"
+                android:layout_marginStart="5dp"
+                android:background="@drawable/bg_pill_average" />
+        </LinearLayout>
     </LinearLayout>
 
 </LinearLayout>
