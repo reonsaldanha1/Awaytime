@@ -229,11 +229,15 @@ object AwayTimeManager {
         calendar.set(Calendar.MILLISECOND, 0)
         val startOfDay = calendar.timeInMillis
 
-        // Fallback default sample data matching Image 2
+        // Fallback default sample data
         val fallbackTopApps = listOf(
             AppUsageInfo("com.google.android.youtube", "YouTube", 2 * 3600000L + 47 * 60000L, "2 h 47 m", 0xFF388AF6L, "Entertainment"),
             AppUsageInfo("com.supercell.clashofclans", "Clash of Clans", 2 * 3600000L, "2 h", 0xFF22C5E4L, "Games"),
-            AppUsageInfo("org.telegram.messenger", "Telegram", 39 * 60000L, "39 m", 0xFF4ADE80L, "Social")
+            AppUsageInfo("org.telegram.messenger", "Telegram", 39 * 60000L, "39 m", 0xFF4ADE80L, "Social"),
+            AppUsageInfo("com.instagram.android", "Instagram", 31 * 60000L, "31 m", 0xFFA78BFAL, "Social"),
+            AppUsageInfo("com.whatsapp", "WhatsApp", 18 * 60000L, "18 m", 0xFFFFB74DL, "Social"),
+            AppUsageInfo("com.android.chrome", "Chrome", 14 * 60000L, "14 m", 0xFF2DD4BFL, "Productivity"),
+            AppUsageInfo("com.spotify.music", "Spotify", 12 * 60000L, "12 m", 0xFFF472B6L, "Music")
         )
         val fallbackCategories = listOf(
             AppCategoryUsage("Games", 2 * 3600000L, "2 h", R.drawable.ic_gamepad, 0xFF388AF6L),
@@ -342,13 +346,24 @@ object AwayTimeManager {
 
             validApps.sortByDescending { it.usageMillis }
 
-            val appColors = listOf(0xFF388AF6L, 0xFF22C5E4L, 0xFF4ADE80L, 0xFFA78BFAL, 0xFFFFB74DL)
-            val topApps = validApps.take(3).mapIndexed { index, app ->
-                val color = appColors.getOrElse(index) { 0xFF6B7280L }
+            val palette = listOf(
+                0xFF388AF6L, // Blue
+                0xFF22C5E4L, // Cyan
+                0xFF4ADE80L, // Green
+                0xFFA78BFAL, // Purple
+                0xFFFFB74DL, // Orange
+                0xFFF472B6L, // Pink
+                0xFFFACC15L, // Yellow
+                0xFF2DD4BFL, // Teal
+                0xFFE879F9L, // Magenta
+                0xFFFB7185L  // Rose
+            )
+            val allApps = validApps.mapIndexed { index, app ->
+                val color = palette[index % palette.size]
                 app.copy(colorLong = color)
             }
 
-            val topAppsSum = topApps.sumOf { it.usageMillis }
+            val topAppsSum = allApps.sumOf { it.usageMillis }
             val otherMillis = (totalForegroundMillis - topAppsSum).coerceAtLeast(0L)
 
             val displayGamesMillis = if (gamesTotalMillis > 0L) gamesTotalMillis else 2 * 3600000L
@@ -398,7 +413,7 @@ object AwayTimeManager {
             return DailyWellbeingData(
                 totalScreenMillis = finalTotalScreenMillis,
                 formattedTotalScreenTime = formatDuration(finalTotalScreenMillis),
-                topApps = topApps,
+                topApps = allApps,
                 categories = categories,
                 otherAppsMillis = otherMillis,
                 comparison = comparison

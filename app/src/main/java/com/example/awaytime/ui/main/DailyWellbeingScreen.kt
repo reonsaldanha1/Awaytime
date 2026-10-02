@@ -3,6 +3,7 @@ package com.example.awaytime.ui.main
 import android.content.Context
 import android.content.Intent
 import android.provider.Settings
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -13,11 +14,15 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -32,6 +37,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.awaytime.R
+import com.example.awaytime.data.AppTimerManager
+import com.example.awaytime.data.AwayTimeManager
+import com.example.awaytime.model.AppUsageInfo
 import com.example.awaytime.model.DailyWellbeingData
 
 private val DarkCardBg = Color(0xFF171A21)
@@ -47,6 +55,9 @@ fun DailyWellbeingScreen(
     val context = LocalContext.current
     val scrollState = rememberScrollState()
 
+    var timersMap by remember { mutableStateOf(AppTimerManager.getAllTimers(context)) }
+    var timerDialogApp by remember { mutableStateOf<AppUsageInfo?>(null) }
+
     BackHandler {
         onDismiss()
     }
@@ -57,10 +68,9 @@ fun DailyWellbeingScreen(
             .background(Color(0xFF0C0D11))
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxSize()
+            modifier = Modifier.fillMaxSize()
         ) {
-            // Top Bar with Digital Wellbeing title, back arrow, and right icons
+            // Top Bar with Dailyaway title, back arrow, and right icons
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -79,7 +89,7 @@ fun DailyWellbeingScreen(
                 Spacer(modifier = Modifier.width(6.dp))
 
                 Text(
-                    text = "Digital Wellbeing",
+                    text = "Dailyaway",
                     color = Color.White,
                     fontSize = 22.sp,
                     fontWeight = FontWeight.Bold,
@@ -111,7 +121,7 @@ fun DailyWellbeingScreen(
                 }
             }
 
-            // Scrollable Wellbeing content matching user's Image 2
+            // Scrollable Dailyaway content
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -121,45 +131,7 @@ fun DailyWellbeingScreen(
             ) {
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // 1. Top Card: Build healthy digital habits
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(24.dp))
-                        .border(1.dp, DarkCardBorder, RoundedCornerShape(24.dp)),
-                    color = DarkCardBg
-                ) {
-                    Column(
-                        modifier = Modifier.padding(horizontal = 22.dp, vertical = 22.dp)
-                    ) {
-                        val bannerSubtitle = if (data.comparison?.isReduction == true) {
-                            "Great progress! You used your phone less today than yesterday."
-                        } else if (data.comparison != null) {
-                            "You've used more screen time today. Take periodic breaks to unwind."
-                        } else {
-                            "You'll get feedback and help to keep you on track."
-                        }
-
-                        Text(
-                            text = "Build healthy digital habits",
-                            color = Color(0xFF4DA2FF),
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = (-0.2).sp
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = bannerSubtitle,
-                            color = TextMutedGray,
-                            fontSize = 13.5.sp,
-                            lineHeight = 18.sp
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // 2. Main Screen time today Card with Donut Chart and Top Apps
+                // 1. Main Screen time today Card with Donut Chart and All Apps
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -225,7 +197,7 @@ fun DailyWellbeingScreen(
 
                         Spacer(modifier = Modifier.height(26.dp))
 
-                        // App rows
+                        // All Apps used today
                         data.topApps.forEach { app ->
                             Row(
                                 modifier = Modifier
@@ -260,7 +232,7 @@ fun DailyWellbeingScreen(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // 3. Most used app categories section
+                // 2. Most used app categories section
                 Text(
                     text = "Most used app categories",
                     color = Color.White,
@@ -370,7 +342,7 @@ fun DailyWellbeingScreen(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // 4. App timers section
+                // 3. Fully functional App timers section
                 Text(
                     text = "App timers",
                     color = Color.White,
@@ -397,64 +369,470 @@ fun DailyWellbeingScreen(
                             lineHeight = 19.sp
                         )
 
-                        Spacer(modifier = Modifier.height(18.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
 
-                        val primaryApp = data.topApps.firstOrNull()
-                        if (primaryApp != null) {
+                        val appsWithTimers = data.topApps.filter { timersMap.containsKey(it.packageName) }
+                        val appsWithoutTimers = data.topApps.filter { !timersMap.containsKey(it.packageName) }
+
+                        // Section for active timers
+                        if (appsWithTimers.isNotEmpty()) {
+                            Text(
+                                text = "Active Timers",
+                                color = Color(0xFF4DA2FF),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            appsWithTimers.forEach { app ->
+                                val timerMin = timersMap[app.packageName] ?: 60
+                                val timerMillis = timerMin * 60_000L
+                                val isReached = app.usageMillis >= timerMillis
+                                val remainingMillis = (timerMillis - app.usageMillis).coerceAtLeast(0L)
+                                val fraction = (app.usageMillis.toFloat() / timerMillis.toFloat()).coerceIn(0f, 1f)
+
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 6.dp)
+                                        .clip(RoundedCornerShape(14.dp))
+                                        .background(Color(0xFF1F222C))
+                                        .padding(14.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(10.dp)
+                                                .clip(CircleShape)
+                                                .background(Color(app.colorLong))
+                                        )
+                                        Spacer(modifier = Modifier.width(10.dp))
+                                        Text(
+                                            text = app.appName,
+                                            color = Color.White,
+                                            fontSize = 15.sp,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                        Spacer(modifier = Modifier.weight(1f))
+
+                                        if (isReached) {
+                                            Surface(
+                                                color = Color(0xFF381919),
+                                                shape = RoundedCornerShape(8.dp)
+                                            ) {
+                                                Text(
+                                                    text = "Limit reached",
+                                                    color = Color(0xFFFF5252),
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                                                )
+                                            }
+                                        } else {
+                                            Text(
+                                                text = "${AwayTimeManager.formatDuration(remainingMillis)} left",
+                                                color = Color(0xFF69E094),
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                        }
+
+                                        Spacer(modifier = Modifier.width(8.dp))
+
+                                        IconButton(
+                                            onClick = { timerDialogApp = app },
+                                            modifier = Modifier.size(28.dp)
+                                        ) {
+                                            Icon(
+                                                painter = painterResource(id = R.drawable.ic_timer),
+                                                contentDescription = "Edit timer",
+                                                tint = Color(0xFF4DA2FF),
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
+
+                                        IconButton(
+                                            onClick = {
+                                                AppTimerManager.removeTimer(context, app.packageName)
+                                                timersMap = AppTimerManager.getAllTimers(context)
+                                                Toast.makeText(context, "Timer removed for ${app.appName}", Toast.LENGTH_SHORT).show()
+                                            },
+                                            modifier = Modifier.size(28.dp)
+                                        ) {
+                                            Icon(
+                                                painter = painterResource(id = R.drawable.ic_delete),
+                                                contentDescription = "Delete timer",
+                                                tint = Color(0xFFFF6E6E),
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(8.dp))
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text(
+                                            text = "Used: ${app.formattedDuration}",
+                                            color = TextMutedGray,
+                                            fontSize = 12.sp
+                                        )
+                                        Text(
+                                            text = "Limit: ${AppTimerManager.formatTimerMinutes(timerMin)}",
+                                            color = TextMutedGray,
+                                            fontSize = 12.sp
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.height(6.dp))
+
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(5.dp)
+                                            .clip(RoundedCornerShape(3.dp))
+                                            .background(Color(0xFF282C38))
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth(fraction)
+                                                .fillMaxHeight()
+                                                .clip(RoundedCornerShape(3.dp))
+                                                .background(if (isReached) Color(0xFFFF5252) else Color(0xFF4DA2FF))
+                                        )
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(14.dp))
+                        }
+
+                        // Section for setting timers on apps
+                        Text(
+                            text = if (appsWithTimers.isNotEmpty()) "Other Apps" else "Set App Timers",
+                            color = Color(0xFFC4C8D4),
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        var showAllRemaining by remember { mutableStateOf(false) }
+                        val displayRemaining = if (showAllRemaining) appsWithoutTimers else appsWithoutTimers.take(4)
+
+                        displayRemaining.forEach { app ->
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clip(RoundedCornerShape(14.dp))
-                                    .background(Color(0xFF1F222C))
-                                    .clickable { openSystemWellbeing(context) }
-                                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                                    .padding(vertical = 4.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(Color(0xFF141720))
+                                    .clickable { timerDialogApp = app }
+                                    .padding(horizontal = 12.dp, vertical = 10.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Box(
                                     modifier = Modifier
-                                        .size(32.dp)
+                                        .size(8.dp)
                                         .clip(CircleShape)
-                                        .background(Color(primaryApp.colorLong).copy(alpha = 0.2f)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        painter = painterResource(id = R.drawable.ic_hourglass),
-                                        contentDescription = null,
-                                        tint = Color(primaryApp.colorLong),
-                                        modifier = Modifier.size(16.dp)
+                                        .background(Color(app.colorLong))
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = app.appName,
+                                        color = Color.White,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                    Text(
+                                        text = "${app.formattedDuration} today",
+                                        color = TextMutedGray,
+                                        fontSize = 12.sp
                                     )
                                 }
 
-                                Spacer(modifier = Modifier.width(12.dp))
-
-                                Text(
-                                    text = primaryApp.appName,
-                                    color = Color.White,
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-
-                                Spacer(modifier = Modifier.weight(1f))
-
                                 Surface(
-                                    color = Color(0xFF282C38),
-                                    shape = RoundedCornerShape(10.dp)
+                                    color = Color(0xFF232733),
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier.clickable { timerDialogApp = app }
                                 ) {
                                     Text(
-                                        text = "Manage Timer",
+                                        text = "+ Set Timer",
                                         color = Color(0xFF4DA2FF),
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.SemiBold,
-                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
                                     )
                                 }
                             }
+                        }
+
+                        if (appsWithoutTimers.size > 4) {
+                            Spacer(modifier = Modifier.height(6.dp))
+                            TextButton(
+                                onClick = { showAllRemaining = !showAllRemaining },
+                                modifier = Modifier.align(Alignment.CenterHorizontally)
+                            ) {
+                                Text(
+                                    text = if (showAllRemaining) "Show fewer apps" else "Show all apps (${appsWithoutTimers.size})",
+                                    color = Color(0xFF4DA2FF),
+                                    fontSize = 12.5.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        // Device wellbeing shortcut button
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .border(1.dp, Color(0xFF282C38), RoundedCornerShape(12.dp))
+                                .clickable { openSystemWellbeing(context) }
+                                .padding(horizontal = 14.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_hourglass),
+                                contentDescription = null,
+                                tint = TextMutedGray,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = "Device Wellbeing & App Limits",
+                                color = TextMutedGray,
+                                fontSize = 12.5.sp,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_chevron_right),
+                                contentDescription = null,
+                                tint = TextMutedGray,
+                                modifier = Modifier.size(14.dp)
+                            )
                         }
                     }
                 }
             }
         }
+
+        // App Timer Dialog
+        timerDialogApp?.let { app ->
+            val currentTimer = timersMap[app.packageName] ?: 0
+            AppTimerDialog(
+                app = app,
+                currentMinutes = currentTimer,
+                onSave = { minutes ->
+                    AppTimerManager.setTimerMinutes(context, app.packageName, minutes)
+                    timersMap = AppTimerManager.getAllTimers(context)
+                    timerDialogApp = null
+                    Toast.makeText(context, "Timer set for ${app.appName}: ${AppTimerManager.formatTimerMinutes(minutes)}/day", Toast.LENGTH_SHORT).show()
+                },
+                onDelete = {
+                    AppTimerManager.removeTimer(context, app.packageName)
+                    timersMap = AppTimerManager.getAllTimers(context)
+                    timerDialogApp = null
+                    Toast.makeText(context, "Timer removed for ${app.appName}", Toast.LENGTH_SHORT).show()
+                },
+                onDismiss = { timerDialogApp = null }
+            )
+        }
     }
+}
+
+@Composable
+fun AppTimerDialog(
+    app: AppUsageInfo,
+    currentMinutes: Int,
+    onSave: (Int) -> Unit,
+    onDelete: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    var selectedMinutes by remember { mutableStateOf(if (currentMinutes > 0) currentMinutes else 60) }
+    val row1 = listOf(15, 30, 45, 60)
+    val row2 = listOf(90, 120, 180, 240)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(10.dp)
+                        .clip(CircleShape)
+                        .background(Color(app.colorLong))
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = "${app.appName} Timer",
+                    color = Color.White,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        },
+        text = {
+            Column {
+                Text(
+                    text = "Used today: ${app.formattedDuration}",
+                    color = TextMutedGray,
+                    fontSize = 13.sp
+                )
+                Spacer(modifier = Modifier.height(14.dp))
+                Text(
+                    text = "Daily limit: ${AppTimerManager.formatTimerMinutes(selectedMinutes)}",
+                    color = Color(0xFF4DA2FF),
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Presets row 1
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    row1.forEach { min ->
+                        val isSelected = selectedMinutes == min
+                        Surface(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { selectedMinutes = min },
+                            color = if (isSelected) Color(0xFF388AF6) else Color(0xFF1F222C),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier.padding(vertical = 7.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = AppTimerManager.formatTimerMinutes(min),
+                                    color = if (isSelected) Color.White else TextMutedGray,
+                                    fontSize = 12.sp,
+                                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Presets row 2
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    row2.forEach { min ->
+                        val isSelected = selectedMinutes == min
+                        Surface(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { selectedMinutes = min },
+                            color = if (isSelected) Color(0xFF388AF6) else Color(0xFF1F222C),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier.padding(vertical = 7.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = AppTimerManager.formatTimerMinutes(min),
+                                    color = if (isSelected) Color.White else TextMutedGray,
+                                    fontSize = 12.sp,
+                                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Custom duration stepper
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .clickable { if (selectedMinutes > 15) selectedMinutes -= 15 },
+                        color = Color(0xFF232733),
+                        shape = CircleShape
+                    ) {
+                        Box(
+                            modifier = Modifier.size(36.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("-15m", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(18.dp))
+
+                    Text(
+                        text = AppTimerManager.formatTimerMinutes(selectedMinutes),
+                        color = Color.White,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    Spacer(modifier = Modifier.width(18.dp))
+
+                    Surface(
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .clickable { selectedMinutes += 15 },
+                        color = Color(0xFF232733),
+                        shape = CircleShape
+                    ) {
+                        Box(
+                            modifier = Modifier.size(36.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("+15m", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onSave(selectedMinutes) },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF388AF6)),
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Text("Set Timer", color = Color.White, fontWeight = FontWeight.SemiBold)
+            }
+        },
+        dismissButton = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (currentMinutes > 0) {
+                    TextButton(onClick = onDelete) {
+                        Text("Delete", color = Color(0xFFFF5252))
+                    }
+                    Spacer(modifier = Modifier.width(4.dp))
+                }
+                TextButton(onClick = onDismiss) {
+                    Text("Cancel", color = TextMutedGray)
+                }
+            }
+        },
+        containerColor = Color(0xFF171A21),
+        shape = RoundedCornerShape(20.dp)
+    )
 }
 
 @Composable
@@ -475,14 +853,14 @@ fun WellbeingDonutChart(
 
         data.topApps.forEach { app ->
             val sweep = (app.usageMillis.toFloat() / total.toFloat()) * 360f
-            if (sweep > 4f) {
+            if (sweep > 3f) {
                 slices.add(Slice(sweep, Color(app.colorLong)))
             }
         }
 
         if (data.otherAppsMillis > 0L) {
             val otherSweep = (data.otherAppsMillis.toFloat() / total.toFloat()) * 360f
-            if (otherSweep > 4f) {
+            if (otherSweep > 3f) {
                 slices.add(Slice(otherSweep, Color(0xFF6E7482)))
             }
         }
@@ -502,7 +880,7 @@ fun WellbeingDonutChart(
 
         var startAngle = -90f
         for (slice in slices) {
-            val gap = if (slices.size > 1) 3.5f else 0f
+            val gap = if (slices.size > 1) 3f else 0f
             val sweepAngle = (slice.sweep - gap).coerceAtLeast(1f)
             drawArc(
                 color = slice.color,
@@ -535,5 +913,7 @@ private fun openUsageSettings(context: Context) {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK
         }
         context.startActivity(intent)
-    } catch (e: Exception) {}
+    } catch (e: Exception) {
+        Toast.makeText(context, "Settings cannot be opened directly on this device.", Toast.LENGTH_SHORT).show()
+    }
 }
