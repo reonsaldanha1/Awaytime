@@ -60,12 +60,19 @@ fun MainScreen(
 
     var todayStats by remember { mutableStateOf(AwayTimeManager.getTodayAwayStats(context)) }
     var weeklyStats by remember { mutableStateOf(AwayTimeManager.getWeeklyAwayStats(context)) }
+    var dailyWellbeingData by remember { mutableStateOf(AwayTimeManager.getDailyWellbeingData(context)) }
 
     var selectedTheme by remember { mutableStateOf(prefs.theme) }
     var selectedAccent by remember { mutableStateOf(prefs.accent) }
     var showTimeline by remember { mutableStateOf(prefs.showTimeline) }
     var showSparkle by remember { mutableStateOf(prefs.showSparkle) }
     var targetHours by remember { mutableStateOf(prefs.targetGoalHours) }
+
+    LaunchedEffect(selectedItem) {
+        if (selectedItem?.id == "daily") {
+            dailyWellbeingData = AwayTimeManager.getDailyWellbeingData(context)
+        }
+    }
 
     // Re-check permission and refresh stats whenever app resumes
     DisposableEffect(lifecycleOwner) {
@@ -78,6 +85,7 @@ fun MainScreen(
                 }
                 todayStats = AwayTimeManager.getTodayAwayStats(context)
                 weeklyStats = AwayTimeManager.getWeeklyAwayStats(context)
+                dailyWellbeingData = AwayTimeManager.getDailyWellbeingData(context)
                 triggerWidgetUpdate(context)
             }
         }
@@ -205,53 +213,61 @@ fun MainScreen(
             )
         }
 
-        // Configuration Bottom Sheet (without preview or Add to Home Screen button)
-        selectedItem?.let { item ->
-            ModalBottomSheet(
-                onDismissRequest = { selectedItem = null },
-                containerColor = Color(0xFF14161F),
-                tonalElevation = 8.dp,
-                shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
-            ) {
-                WidgetConfigSheetDirect(
-                    item = item,
-                    prefs = prefs,
-                    todayStats = todayStats,
-                    weeklyStats = weeklyStats,
-                    hasPermission = hasPermission,
-                    selectedTheme = selectedTheme,
-                    selectedAccent = selectedAccent,
-                    showTimeline = showTimeline,
-                    showSparkle = showSparkle,
-                    targetHours = targetHours,
-                    onThemeChange = {
-                        selectedTheme = it
-                        prefs.theme = it
-                        triggerWidgetUpdate(context)
-                    },
-                    onAccentChange = {
-                        selectedAccent = it
-                        prefs.accent = it
-                        triggerWidgetUpdate(context)
-                    },
-                    onTimelineChange = {
-                        showTimeline = it
-                        prefs.showTimeline = it
-                        triggerWidgetUpdate(context)
-                    },
-                    onSparkleChange = {
-                        showSparkle = it
-                        prefs.showSparkle = it
-                        triggerWidgetUpdate(context)
-                    },
-                    onTargetHoursChange = {
-                        targetHours = it
-                        prefs.targetGoalHours = it
-                    },
-                    onRequestPermission = {
-                        openUsageAccessSettings(context)
-                    }
-                )
+        // Daily Wellbeing Screen for the first option "Daily Away" (matches Image 2)
+        if (selectedItem?.id == "daily") {
+            DailyWellbeingScreen(
+                data = dailyWellbeingData,
+                onDismiss = { selectedItem = null }
+            )
+        } else {
+            // Configuration Bottom Sheet for other items
+            selectedItem?.let { item ->
+                ModalBottomSheet(
+                    onDismissRequest = { selectedItem = null },
+                    containerColor = Color(0xFF14161F),
+                    tonalElevation = 8.dp,
+                    shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
+                ) {
+                    WidgetConfigSheetDirect(
+                        item = item,
+                        prefs = prefs,
+                        todayStats = todayStats,
+                        weeklyStats = weeklyStats,
+                        hasPermission = hasPermission,
+                        selectedTheme = selectedTheme,
+                        selectedAccent = selectedAccent,
+                        showTimeline = showTimeline,
+                        showSparkle = showSparkle,
+                        targetHours = targetHours,
+                        onThemeChange = {
+                            selectedTheme = it
+                            prefs.theme = it
+                            triggerWidgetUpdate(context)
+                        },
+                        onAccentChange = {
+                            selectedAccent = it
+                            prefs.accent = it
+                            triggerWidgetUpdate(context)
+                        },
+                        onTimelineChange = {
+                            showTimeline = it
+                            prefs.showTimeline = it
+                            triggerWidgetUpdate(context)
+                        },
+                        onSparkleChange = {
+                            showSparkle = it
+                            prefs.showSparkle = it
+                            triggerWidgetUpdate(context)
+                        },
+                        onTargetHoursChange = {
+                            targetHours = it
+                            prefs.targetGoalHours = it
+                        },
+                        onRequestPermission = {
+                            openUsageAccessSettings(context)
+                        }
+                    )
+                }
             }
         }
     }

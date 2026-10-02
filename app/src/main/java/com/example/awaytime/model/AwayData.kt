@@ -68,3 +68,38 @@ enum class WidgetAccent(val displayName: String, val colorLong: Long) {
     BUBBLE_PINK("Bubble Pink", 0xFFFF80ABL),
     SUN_YELLOW("Sun Yellow", 0xFFFFD54FL)
 }
+
+/**
+ * Data representation for an individual app's daily usage.
+ */
+data class AppUsageInfo(
+    val packageName: String,
+    val appName: String,
+    val usageMillis: Long,
+    val formattedDuration: String,
+    val colorLong: Long,
+    val categoryName: String = "App"
+)
+
+/**
+ * Data representation for an app category's daily usage (e.g. Games, Social).
+ */
+data class AppCategoryUsage(
+    val categoryName: String,
+    val usageMillis: Long,
+    val formattedDuration: String,
+    val iconRes: Int,
+    val colorLong: Long
+)
+
+/**
+ * Complete daily digital wellbeing stats matching Image 2.
+ */
+data class DailyWellbeingData(
+    val totalScreenMillis: Long,
+    val formattedTotalScreenTime: String,
+    val topApps: List<AppUsageInfo>,
+    val categories: List<AppCategoryUsage>,
+    val otherAppsMillis: Long
+)
+
