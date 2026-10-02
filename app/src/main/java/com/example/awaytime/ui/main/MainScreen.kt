@@ -28,6 +28,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.example.awaytime.R
 import com.example.awaytime.data.AwayTimeManager
+import com.example.awaytime.data.DistractionManager
 import com.example.awaytime.data.WidgetPreferences
 import com.example.awaytime.model.DailyAwayStats
 import com.example.awaytime.model.WeeklyAwayStats
@@ -57,6 +58,8 @@ fun MainScreen(
 
     var hasPermission by remember { mutableStateOf(AwayTimeManager.hasUsageStatsPermission(context)) }
     var showPermissionDialog by remember { mutableStateOf(!hasPermission) }
+    var hasNotificationPermission by remember { mutableStateOf(DistractionManager.hasNotificationListenerPermission(context)) }
+    var showNotificationPermissionDialog by remember { mutableStateOf(false) }
 
     var todayStats by remember { mutableStateOf(AwayTimeManager.getTodayAwayStats(context)) }
     var weeklyStats by remember { mutableStateOf(AwayTimeManager.getWeeklyAwayStats(context)) }
@@ -68,6 +71,14 @@ fun MainScreen(
     var showTimeline by remember { mutableStateOf(prefs.showTimeline) }
     var showSparkle by remember { mutableStateOf(prefs.showSparkle) }
     var targetHours by remember { mutableStateOf(prefs.targetGoalHours) }
+
+    // Sequential permission check: if usage permission is already granted, prompt notification permission if not yet asked
+    LaunchedEffect(hasPermission) {
+        if (hasPermission && !hasNotificationPermission && !prefs.hasPromptedNotificationPermission) {
+            showNotificationPermissionDialog = true
+            prefs.hasPromptedNotificationPermission = true
+        }
+    }
 
     LaunchedEffect(selectedItem) {
         if (selectedItem?.id == "daily") {
@@ -83,8 +94,14 @@ fun MainScreen(
             if (event == Lifecycle.Event.ON_RESUME) {
                 val perm = AwayTimeManager.hasUsageStatsPermission(context)
                 hasPermission = perm
+                val notifPerm = DistractionManager.hasNotificationListenerPermission(context)
+                hasNotificationPermission = notifPerm
                 if (perm) {
                     showPermissionDialog = false
+                    if (!notifPerm && !prefs.hasPromptedNotificationPermission) {
+                        showNotificationPermissionDialog = true
+                        prefs.hasPromptedNotificationPermission = true
+                    }
                 }
                 todayStats = AwayTimeManager.getTodayAwayStats(context)
                 weeklyStats = AwayTimeManager.getWeeklyAwayStats(context)
@@ -103,6 +120,7 @@ fun MainScreen(
         WidgetCategoryItem("daily", "Daily Away", "Track your time away from your phone", R.drawable.ic_timer, PastelBlue),
         WidgetCategoryItem("weekly", "Weekly Away", "Weekly screen time & apps used over the week", R.drawable.ic_chart, PastelPeach),
         WidgetCategoryItem("customize", "Customize Widget", "Accent color, fonts & minimal black/white style", R.drawable.ic_palette, PastelYellow),
+        WidgetCategoryItem("distractions", "Distractions", "Notification reading & app distraction blocker", R.drawable.ic_bell, PastelCoral),
         WidgetCategoryItem("streaks", "Focus & Streaks", "Current offline streak & phone-free intervals", R.drawable.ic_hourglass, PastelPink),
         WidgetCategoryItem("goals", "Daily Goals", "Set target hours and digital detox milestones", R.drawable.ic_target, PastelMint),
         WidgetCategoryItem("timeline", "Timeline & Intervals", "Hourly screen-off distribution throughout the day", R.drawable.ic_chart, PastelTeal),
@@ -208,7 +226,55 @@ fun MainScreen(
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = { showPermissionDialog = false }) {
+                    TextButton(onClick = {
+                        showPermissionDialog = false
+                        if (!hasNotificationPermission && !prefs.hasPromptedNotificationPermission) {
+                            showNotificationPermissionDialog = true
+                            prefs.hasPromptedNotificationPermission = true
+                        }
+                    }) {
+                        Text("Not Now", color = TextMuted)
+                    }
+                },
+                containerColor = Color(0xFF181A24),
+                shape = RoundedCornerShape(24.dp)
+            )
+        }
+
+        // Notification Reading Permission Dialog (prompted sequentially after Usage Access)
+        if (showNotificationPermissionDialog && !hasNotificationPermission) {
+            AlertDialog(
+                onDismissRequest = { showNotificationPermissionDialog = false },
+                title = {
+                    Text(
+                        text = "Notification Reading Permission",
+                        color = TextPrimary,
+                        fontSize = 19.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                text = {
+                    Text(
+                        text = "Awaytime needs Notification Access to show notifications under Distractions and allow you to block distracting app notifications.",
+                        color = TextSecondary,
+                        fontSize = 14.sp,
+                        lineHeight = 20.sp
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            showNotificationPermissionDialog = false
+                            openNotificationListenerSettings(context)
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = PastelCoral),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("Grant Access", color = Color.White, fontWeight = FontWeight.SemiBold)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showNotificationPermissionDialog = false }) {
                         Text("Not Now", color = TextMuted)
                     }
                 },
@@ -233,6 +299,11 @@ fun MainScreen(
             // Customize Widget Screen (accent color, font, and minimal black & white)
             CustomizeWidgetScreen(
                 prefs = prefs,
+                onDismiss = { selectedItem = null }
+            )
+        } else if (selectedItem?.id == "distractions") {
+            // Distractions Screen (notification list & per-app notification blocking)
+            DistractionsScreen(
                 onDismiss = { selectedItem = null }
             )
         } else {

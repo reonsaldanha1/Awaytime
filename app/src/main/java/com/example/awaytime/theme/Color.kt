@@ -20,6 +20,7 @@ val PastelMint = Color(0xFFD4F4DF)
 val PastelYellow = Color(0xFFFFF0B3)
 val PastelTeal = Color(0xFFD0F2ED)
 val PastelPurple = Color(0xFFE3D7FF)
+val PastelCoral = Color(0xFFFFD1C1)
 
 // Widget accents
 val AccentBlue = Color(0xFF4F8DF7)

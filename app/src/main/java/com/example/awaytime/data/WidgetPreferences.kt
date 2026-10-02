@@ -50,4 +50,8 @@ class WidgetPreferences(context: Context) {
     var mockModeEnabled: Boolean
         get() = prefs.getBoolean("mock_mode_enabled", false)
         set(value) = prefs.edit().putBoolean("mock_mode_enabled", value).apply()
+
+    var hasPromptedNotificationPermission: Boolean
+        get() = prefs.getBoolean("has_prompted_notif_perm", false)
+        set(value) = prefs.edit().putBoolean("has_prompted_notif_perm", value).apply()
 }
