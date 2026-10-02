@@ -55,9 +55,20 @@ fun DailyWellbeingScreen(
     val context = LocalContext.current
     val scrollState = rememberScrollState()
 
+    var currentData by remember(data) { mutableStateOf(data) }
     var timersMap by remember { mutableStateOf(AppTimerManager.getAllTimers(context)) }
     var timerDialogApp by remember { mutableStateOf<AppUsageInfo?>(null) }
     var showAllApps by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        currentData = AwayTimeManager.getDailyWellbeingData(context)
+        while (true) {
+            kotlinx.coroutines.delay(20000L)
+            currentData = AwayTimeManager.getDailyWellbeingData(context)
+        }
+    }
+
+    val displayData = currentData
 
     BackHandler {
         onDismiss()
@@ -96,6 +107,20 @@ fun DailyWellbeingScreen(
                     fontWeight = FontWeight.Bold,
                     letterSpacing = (-0.3).sp
                 )
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                IconButton(onClick = {
+                    currentData = AwayTimeManager.getDailyWellbeingData(context)
+                    Toast.makeText(context, "Screen usage updated", Toast.LENGTH_SHORT).show()
+                }) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_refresh),
+                        contentDescription = "Refresh usage",
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
 
             // Scrollable Dailyaway content
@@ -136,14 +161,14 @@ fun DailyWellbeingScreen(
                                 )
                                 Spacer(modifier = Modifier.height(6.dp))
                                 Text(
-                                    text = if (data.formattedAwayTime.isNotBlank()) data.formattedAwayTime else data.formattedTotalScreenTime,
+                                    text = if (displayData.formattedAwayTime.isNotBlank()) displayData.formattedAwayTime else displayData.formattedTotalScreenTime,
                                     color = Color.White,
                                     fontSize = 32.sp,
                                     fontWeight = FontWeight.Bold,
                                     letterSpacing = (-0.5).sp
                                 )
 
-                                data.comparison?.let { comp ->
+                                displayData.comparison?.let { comp ->
                                     Spacer(modifier = Modifier.height(8.dp))
                                     val isImprovement = comp.isReduction
                                     val badgeBg = if (isImprovement) Color(0xFF133825) else Color(0xFF382319)
@@ -167,15 +192,26 @@ fun DailyWellbeingScreen(
 
                             // Donut Chart
                             WellbeingDonutChart(
-                                data = data,
+                                data = displayData,
                                 modifier = Modifier.size(105.dp)
                             )
                         }
 
-                        Spacer(modifier = Modifier.height(26.dp))
+                        // App Screen time header above the apps
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        Text(
+                            text = "App Screen time",
+                            color = TextMutedGray,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            letterSpacing = 0.2.sp
+                        )
+
+                        Spacer(modifier = Modifier.height(10.dp))
 
                         // Apps used today: 4 apps initially with 'More apps' button
-                        val displayedApps = if (showAllApps) data.topApps else data.topApps.take(4)
+                        val displayedApps = if (showAllApps) displayData.topApps else displayData.topApps.take(4)
 
                         displayedApps.forEach { app ->
                             Row(
@@ -207,7 +243,7 @@ fun DailyWellbeingScreen(
                             }
                         }
 
-                        if (data.topApps.size > 4) {
+                        if (displayData.topApps.size > 4) {
                             Spacer(modifier = Modifier.height(10.dp))
                             Surface(
                                 modifier = Modifier
@@ -259,10 +295,10 @@ fun DailyWellbeingScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    val gamesCategory = data.categories.firstOrNull { it.categoryName == "Games" }
-                        ?: data.categories.getOrNull(0)
-                    val socialCategory = data.categories.firstOrNull { it.categoryName == "Social" }
-                        ?: data.categories.getOrNull(1)
+                    val gamesCategory = displayData.categories.firstOrNull { it.categoryName == "Games" }
+                        ?: displayData.categories.getOrNull(0)
+                    val socialCategory = displayData.categories.firstOrNull { it.categoryName == "Social" }
+                        ?: displayData.categories.getOrNull(1)
 
                     // Games Card
                     gamesCategory?.let { cat ->
@@ -384,8 +420,8 @@ fun DailyWellbeingScreen(
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        val appsWithTimers = data.topApps.filter { timersMap.containsKey(it.packageName) }
-                        val appsWithoutTimers = data.topApps.filter { !timersMap.containsKey(it.packageName) }
+                        val appsWithTimers = displayData.topApps.filter { timersMap.containsKey(it.packageName) }
+                        val appsWithoutTimers = displayData.topApps.filter { !timersMap.containsKey(it.packageName) }
 
                         // Section for active timers
                         if (appsWithTimers.isNotEmpty()) {

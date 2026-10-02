@@ -17,7 +17,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import android.widget.Toast
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -28,6 +29,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.awaytime.R
+import com.example.awaytime.data.AwayTimeManager
 import com.example.awaytime.model.WeeklyAwayData
 
 private val DarkCardBg = Color(0xFF171A21)
@@ -42,6 +44,18 @@ fun WeeklyAwayScreen(
 ) {
     val context = LocalContext.current
     val scrollState = rememberScrollState()
+
+    var currentData by remember(data) { mutableStateOf(data) }
+
+    LaunchedEffect(Unit) {
+        currentData = AwayTimeManager.getWeeklyAwayData(context)
+        while (true) {
+            kotlinx.coroutines.delay(20000L)
+            currentData = AwayTimeManager.getWeeklyAwayData(context)
+        }
+    }
+
+    val displayData = currentData
 
     BackHandler {
         onDismiss()
@@ -83,6 +97,18 @@ fun WeeklyAwayScreen(
 
                 Spacer(modifier = Modifier.weight(1f))
 
+                IconButton(onClick = {
+                    currentData = AwayTimeManager.getWeeklyAwayData(context)
+                    Toast.makeText(context, "Weekly usage updated", Toast.LENGTH_SHORT).show()
+                }) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_refresh),
+                        contentDescription = "Refresh",
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
                 IconButton(onClick = { openSystemWellbeing(context) }) {
                     Icon(
                         painter = painterResource(id = R.drawable.ic_bar_chart_alt),
@@ -123,15 +149,15 @@ fun WeeklyAwayScreen(
                     Column(
                         modifier = Modifier.padding(horizontal = 22.dp, vertical = 20.dp)
                     ) {
-                        val bannerMsg = if (data.comparison != null) {
-                            val diffText = formatDetailedDiff(data.comparison.diffMillis, data.comparison.formattedDiff)
-                            if (data.comparison.isReduction) {
+                        val bannerMsg = if (displayData.comparison != null) {
+                            val diffText = formatDetailedDiff(displayData.comparison.diffMillis, displayData.comparison.formattedDiff)
+                            if (displayData.comparison.isReduction) {
                                 "You have put your phone away $diffText more than last week"
                             } else {
                                 "You have put your phone away $diffText less than last week"
                             }
                         } else {
-                            "${data.dateRangeLabel} • 7-day usage & apps breakdown"
+                            "${displayData.dateRangeLabel} • 7-day usage & apps breakdown"
                         }
 
                         Text(
@@ -176,14 +202,14 @@ fun WeeklyAwayScreen(
                                 )
                                 Spacer(modifier = Modifier.height(6.dp))
                                 Text(
-                                    text = if (data.formattedTotalAwayTime.isNotBlank()) data.formattedTotalAwayTime else data.formattedTotalScreenTime,
+                                    text = if (displayData.formattedTotalAwayTime.isNotBlank()) displayData.formattedTotalAwayTime else displayData.formattedTotalScreenTime,
                                     color = Color.White,
                                     fontSize = 32.sp,
                                     fontWeight = FontWeight.Bold,
                                     letterSpacing = (-0.5).sp
                                 )
 
-                                data.comparison?.let { comp ->
+                                displayData.comparison?.let { comp ->
                                     Spacer(modifier = Modifier.height(8.dp))
                                     val isReduction = comp.isReduction
                                     val badgeBg = if (isReduction) Color(0xFF133825) else Color(0xFF382319)
@@ -217,7 +243,7 @@ fun WeeklyAwayScreen(
                                     shape = RoundedCornerShape(12.dp)
                                 ) {
                                     Text(
-                                        text = if (data.formattedAverageDailyAwayTime.isNotBlank()) data.formattedAverageDailyAwayTime else data.formattedAverageDailyScreenTime,
+                                        text = if (displayData.formattedAverageDailyAwayTime.isNotBlank()) displayData.formattedAverageDailyAwayTime else displayData.formattedAverageDailyScreenTime,
                                         color = Color(0xFF38BDF8),
                                         fontSize = 13.sp,
                                         fontWeight = FontWeight.SemiBold,
@@ -230,7 +256,7 @@ fun WeeklyAwayScreen(
                         Spacer(modifier = Modifier.height(24.dp))
 
                         // 7-day bar chart
-                        val maxDayHours = (data.dailyBreakdown.maxOfOrNull { it.screenHours } ?: 8f).coerceAtLeast(1f)
+                        val maxDayHours = (displayData.dailyBreakdown.maxOfOrNull { it.screenHours } ?: 8f).coerceAtLeast(1f)
 
                         Row(
                             modifier = Modifier
@@ -239,7 +265,7 @@ fun WeeklyAwayScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.Bottom
                         ) {
-                            data.dailyBreakdown.forEach { day ->
+                            displayData.dailyBreakdown.forEach { day ->
                                 val barHeightFraction = (day.screenHours / maxDayHours).coerceIn(0.08f, 1f)
 
                                 Column(
@@ -303,9 +329,9 @@ fun WeeklyAwayScreen(
                     Column(
                         modifier = Modifier.padding(22.dp)
                     ) {
-                        val maxAppMillis = (data.topApps.maxOfOrNull { it.usageMillis } ?: 1L).coerceAtLeast(1L)
+                        val maxAppMillis = (displayData.topApps.maxOfOrNull { it.usageMillis } ?: 1L).coerceAtLeast(1L)
 
-                        data.topApps.forEachIndexed { index, app ->
+                        displayData.topApps.forEachIndexed { index, app ->
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -370,10 +396,10 @@ fun WeeklyAwayScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    val gamesCategory = data.categories.firstOrNull { it.categoryName == "Games" }
-                        ?: data.categories.getOrNull(0)
-                    val socialCategory = data.categories.firstOrNull { it.categoryName == "Social" }
-                        ?: data.categories.getOrNull(1)
+                    val gamesCategory = displayData.categories.firstOrNull { it.categoryName == "Games" }
+                        ?: displayData.categories.getOrNull(0)
+                    val socialCategory = displayData.categories.firstOrNull { it.categoryName == "Social" }
+                        ?: displayData.categories.getOrNull(1)
 
                     gamesCategory?.let { cat ->
                         Surface(
@@ -483,7 +509,7 @@ fun WeeklyAwayScreen(
                         Spacer(modifier = Modifier.height(6.dp))
 
                         val weekTotalMillis = 7L * 24 * 3600 * 1000L
-                        val awayWeekMillis = (weekTotalMillis - data.totalScreenMillis).coerceAtLeast(0L)
+                        val awayWeekMillis = (weekTotalMillis - displayData.totalScreenMillis).coerceAtLeast(0L)
                         val awayHours = awayWeekMillis / 3600000L
                         val awayMins = (awayWeekMillis % 3600000L) / 60000L
 
@@ -495,10 +521,12 @@ fun WeeklyAwayScreen(
                         )
                         Spacer(modifier = Modifier.height(4.dp))
 
-                        val summaryNote = if (data.comparison?.isReduction == true) {
-                            "Weekly improvement: ${data.comparison.formattedDiff} less screen usage than the previous week!"
-                        } else if (data.comparison != null) {
-                            "Notice: ${data.comparison.formattedDiff} more screen usage than the previous week."
+                        val summaryNote = if (displayData.comparison?.isReduction == true) {
+                            val diffText = formatDetailedDiff(displayData.comparison.diffMillis, displayData.comparison.formattedDiff)
+                            "Weekly improvement: Put phone away $diffText more than last week!"
+                        } else if (displayData.comparison != null) {
+                            val diffText = formatDetailedDiff(displayData.comparison.diffMillis, displayData.comparison.formattedDiff)
+                            "Notice: Put phone away $diffText less than last week."
                         } else {
                             "Great job investing in real-world moments and focus habits."
                         }
