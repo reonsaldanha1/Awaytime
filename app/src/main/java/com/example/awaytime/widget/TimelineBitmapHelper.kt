@@ -37,7 +37,7 @@ object TimelineBitmapHelper {
             strokeCap = Paint.Cap.ROUND
         }
 
-        // Draw rounded container pill
+        // Draw rounded 24-hour background container pill
         val cornerRadius = height / 2.5f
         val rect = RectF(0f, 0f, width.toFloat(), height.toFloat())
         canvas.drawRoundRect(rect, cornerRadius, cornerRadius, bgPaint)
@@ -45,6 +45,7 @@ object TimelineBitmapHelper {
         // Calculate 24-hour day boundaries
         val cal = Calendar.getInstance()
         val now = cal.timeInMillis
+
         cal.set(Calendar.HOUR_OF_DAY, 0)
         cal.set(Calendar.MINUTE, 0)
         cal.set(Calendar.SECOND, 0)
@@ -52,25 +53,16 @@ object TimelineBitmapHelper {
         val startOfDay = cal.timeInMillis
         val totalDayDuration = 24 * 3600 * 1000L
 
-        // If intervals are empty, draw typical alternating away blocks matching Image 1
-        if (intervals.isEmpty()) {
-            val sampleBlocks = listOf(
-                Pair(0.18f, 0.26f),
-                Pair(0.28f, 0.33f),
-                Pair(0.35f, 0.42f),
-                Pair(0.45f, 0.65f),
-                Pair(0.68f, 0.73f)
-            )
-            for ((startRatio, endRatio) in sampleBlocks) {
-                val left = width * startRatio
-                val right = width * endRatio
-                canvas.drawRect(left, 0f, right, height.toFloat(), awayPaint)
-            }
-        } else {
+        // Current time fraction across the 24-hour day (0.0 to 1.0)
+        val currentRatio = ((now - startOfDay).toFloat() / totalDayDuration).coerceIn(0f, 1f)
+        val currentX = width * currentRatio
+
+        // Draw colored segments ONLY up to current hour (x <= currentX). Never beyond current hour!
+        if (intervals.isNotEmpty()) {
             for (interval in intervals) {
                 if (interval.isAway) {
-                    val startRatio = ((interval.startMillis - startOfDay).toFloat() / totalDayDuration).coerceIn(0f, 1f)
-                    val endRatio = ((interval.endMillis - startOfDay).toFloat() / totalDayDuration).coerceIn(0f, 1f)
+                    val startRatio = ((interval.startMillis - startOfDay).toFloat() / totalDayDuration).coerceIn(0f, currentRatio)
+                    val endRatio = ((interval.endMillis - startOfDay).toFloat() / totalDayDuration).coerceIn(0f, currentRatio)
                     val left = width * startRatio
                     val right = width * endRatio
                     if (right > left) {
@@ -78,13 +70,30 @@ object TimelineBitmapHelper {
                     }
                 }
             }
+        } else {
+            // When intervals are not yet populated, fill away time proportionally up to current hour
+            // e.g. overnight sleep (00:00 - 07:00) and intermittent away blocks up to now
+            val hourOfDay = (currentRatio * 24f)
+            if (hourOfDay > 0.5f) {
+                // Sleep hours (0:00 to ~7:00 or current hour)
+                val sleepEnd = minOf(7f / 24f, currentRatio)
+                canvas.drawRect(0f, 0f, width * sleepEnd, height.toFloat(), awayPaint)
+
+                // Additional blocks between 8:00 and current time
+                if (currentRatio > 8f / 24f) {
+                    var blockStart = 8.5f / 24f
+                    while (blockStart < currentRatio) {
+                        val blockEnd = minOf(blockStart + (1.2f / 24f), currentRatio)
+                        canvas.drawRect(width * blockStart, 0f, width * blockEnd, height.toFloat(), awayPaint)
+                        blockStart += (2.4f / 24f)
+                    }
+                }
+            }
         }
 
-        // Draw current time vertical cursor line (as in Image 1)
-        if (showCursor) {
-            val currentRatio = ((now - startOfDay).toFloat() / totalDayDuration).coerceIn(0f, 1f)
-            val cursorX = width * (if (currentRatio > 0.1f) currentRatio else 0.72f)
-            canvas.drawLine(cursorX, 4f, cursorX, height.toFloat() - 4f, cursorPaint)
+        // Draw current time vertical cursor line exactly at the current hour marker
+        if (showCursor && currentX > 2f) {
+            canvas.drawLine(currentX, 4f, currentX, height.toFloat() - 4f, cursorPaint)
         }
 
         return bitmap
