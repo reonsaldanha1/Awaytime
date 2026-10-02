@@ -45,7 +45,7 @@ object WeeklyChartBitmapHelper {
         val topMargin = height * 0.15f
         val bottomMargin = height * 0.22f
         val chartHeight = height - topMargin - bottomMargin
-        val maxHours = 16f
+        val maxHours = 24f
 
         for (i in points.indices) {
             val point = points[i]

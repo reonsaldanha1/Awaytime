@@ -4,6 +4,7 @@ import android.app.AppOpsManager
 import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
 import android.content.Context
+import android.os.Build
 import android.os.Process
 import com.example.awaytime.model.DailyAwayStats
 import com.example.awaytime.model.DayPoint
@@ -16,13 +17,23 @@ import java.util.Locale
 
 object AwayTimeManager {
 
+    private const val DAY_MILLIS = 24L * 3600 * 1000L
+
     fun hasUsageStatsPermission(context: Context): Boolean {
         val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as? AppOpsManager ?: return false
-        val mode = appOps.unsafeCheckOpNoThrow(
-            AppOpsManager.OPSTR_GET_USAGE_STATS,
-            Process.myUid(),
-            context.packageName
-        )
+        val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            appOps.unsafeCheckOpNoThrow(
+                AppOpsManager.OPSTR_GET_USAGE_STATS,
+                Process.myUid(),
+                context.packageName
+            )
+        } else {
+            appOps.checkOpNoThrow(
+                AppOpsManager.OPSTR_GET_USAGE_STATS,
+                Process.myUid(),
+                context.packageName
+            )
+        }
         return mode == AppOpsManager.MODE_ALLOWED
     }
 
@@ -40,15 +51,15 @@ object AwayTimeManager {
         val dateLabel = dateFormat.format(Date(now))
 
         if (!hasUsageStatsPermission(context)) {
-            // Provide realistic sample matching Image 1 (8h 19m away)
-            val sampleAwayMillis = (8L * 3600 + 19L * 60) * 1000L
-            val sampleScreenMillis = (2L * 3600 + 45L * 60) * 1000L
+            // Fallback sample: 5 hours used, 19 hours away out of 24 hours
+            val sampleScreenMillis = 5L * 3600 * 1000L
+            val sampleAwayMillis = DAY_MILLIS - sampleScreenMillis // 19 hours
             val sampleIntervals = listOf(
-                ScreenInterval(startOfDay, startOfDay + 3 * 3600000, isAway = true),
-                ScreenInterval(startOfDay + 3 * 3600000, startOfDay + 4 * 3600000, isAway = false),
-                ScreenInterval(startOfDay + 4 * 3600000, startOfDay + 7 * 3600000, isAway = true),
-                ScreenInterval(startOfDay + 7 * 3600000, startOfDay + 8 * 3600000, isAway = false),
-                ScreenInterval(startOfDay + 8 * 3600000, startOfDay + 10 * 3600000, isAway = true)
+                ScreenInterval(startOfDay, startOfDay + 7 * 3600000L, isAway = true),
+                ScreenInterval(startOfDay + 7 * 3600000L, startOfDay + 9 * 3600000L, isAway = false),
+                ScreenInterval(startOfDay + 9 * 3600000L, startOfDay + 12 * 3600000L, isAway = true),
+                ScreenInterval(startOfDay + 12 * 3600000L, startOfDay + 15 * 3600000L, isAway = false),
+                ScreenInterval(startOfDay + 15 * 3600000L, now, isAway = true)
             )
             return DailyAwayStats(
                 dateLabel = dateLabel,
@@ -61,8 +72,9 @@ object AwayTimeManager {
 
         val usageStatsManager = context.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager
         if (usageStatsManager == null) {
-            val defaultMillis = (8L * 3600 + 19L * 60) * 1000L
-            return DailyAwayStats(dateLabel, defaultMillis, 3 * 3600000L, 30 * 60000L)
+            val sampleScreenMillis = 5L * 3600 * 1000L
+            val sampleAwayMillis = DAY_MILLIS - sampleScreenMillis
+            return DailyAwayStats(dateLabel, sampleAwayMillis, sampleScreenMillis, 30 * 60000L)
         }
 
         var totalInteractiveMillis = 0L
@@ -70,6 +82,7 @@ object AwayTimeManager {
         val intervals = mutableListOf<ScreenInterval>()
 
         try {
+            // 1. Calculate screen interactive time from UsageEvents
             val events = usageStatsManager.queryEvents(startOfDay, now)
             val event = UsageEvents.Event()
 
@@ -104,12 +117,29 @@ object AwayTimeManager {
             } else {
                 intervals.add(ScreenInterval(lastEventTime, now, isAway = true))
             }
+
+            // 2. Also check package usage stats total foreground time as cross-check
+            val statsList = usageStatsManager.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, startOfDay, now)
+            if (!statsList.isNullOrEmpty()) {
+                var totalAppForegroundTime = 0L
+                for (stat in statsList) {
+                    if (stat.lastTimeUsed >= startOfDay) {
+                        totalAppForegroundTime += stat.totalTimeInForeground
+                    }
+                }
+                // Use the higher of app foreground sum or interactive event duration
+                if (totalAppForegroundTime > totalInteractiveMillis) {
+                    totalInteractiveMillis = totalAppForegroundTime
+                }
+            }
+
         } catch (e: Exception) {
-            totalInteractiveMillis = 2 * 3600 * 1000L
+            totalInteractiveMillis = 5 * 3600 * 1000L
         }
 
-        val elapsedToday = now - startOfDay
-        val totalAwayMillis = (elapsedToday - totalInteractiveMillis).coerceAtLeast(0L)
+        // Out of 24 hours, time NOT using phone:
+        // Away Time = 24 Hours - Screen Usage Time Today
+        val totalAwayMillis = (DAY_MILLIS - totalInteractiveMillis).coerceIn(0L, DAY_MILLIS)
 
         return DailyAwayStats(
             dateLabel = dateLabel,
@@ -130,23 +160,23 @@ object AwayTimeManager {
         val dayFormat = SimpleDateFormat("d MMMM", Locale.getDefault())
         val dateRangeLabel = "${dayFormat.format(startCal.time)} – ${dayFormat.format(endCal.time)}"
 
-        // Values matching Image 2 ("30 hr 28 min", "Day average 11 hr 19 min", 7 daily points)
+        // Daily away hours out of 24h (e.g. 24h - 5h = 19h average)
         val points = mutableListOf(
-            DayPoint("6", 10.2f),
-            DayPoint("7", 8.4f),
-            DayPoint("8", 12.1f),
-            DayPoint("9", 7.5f),
-            DayPoint("10", 13.8f),
-            DayPoint("11", 9.1f),
-            DayPoint("12", 11.5f)
+            DayPoint("6", 18.5f),
+            DayPoint("7", 19.2f),
+            DayPoint("8", 17.8f),
+            DayPoint("9", 20.1f),
+            DayPoint("10", 18.0f),
+            DayPoint("11", 19.5f),
+            DayPoint("12", 19.0f)
         )
 
         return WeeklyAwayStats(
             dateRangeLabel = dateRangeLabel,
-            totalAwayHours = 30,
-            totalAwayMinutes = 28,
-            averageHours = 11,
-            averageMinutes = 19,
+            totalAwayHours = 132,
+            totalAwayMinutes = 10,
+            averageHours = 18,
+            averageMinutes = 53,
             dailyPoints = points
         )
     }
