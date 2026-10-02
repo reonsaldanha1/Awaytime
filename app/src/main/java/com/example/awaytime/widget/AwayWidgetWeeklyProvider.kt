@@ -8,9 +8,14 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import android.widget.RemoteViews
+import android.text.SpannableString
+import android.text.Spanned
+import android.text.style.TypefaceSpan
 import com.example.awaytime.MainActivity
 import com.example.awaytime.R
 import com.example.awaytime.data.AwayTimeManager
+import com.example.awaytime.data.WidgetPreferences
+import com.example.awaytime.model.WidgetFont
 
 class AwayWidgetWeeklyProvider : AppWidgetProvider() {
 
@@ -37,20 +42,44 @@ class AwayWidgetWeeklyProvider : AppWidgetProvider() {
         fun updateAppWidget(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int) {
             try {
                 val views = RemoteViews(context.packageName, R.layout.widget_away_weekly)
+                val prefs = WidgetPreferences(context)
                 val weeklyStats = AwayTimeManager.getWeeklyAwayStats(context)
 
-                // Total weekly away time e.g. "30 hr 28 min"
-                views.setTextViewText(R.id.tv_weekly_total, weeklyStats.formattedTotal())
+                val isMinimal = prefs.isMinimalMode
+                val accentColorInt = if (isMinimal) 0xFFFFFFFF.toInt() else prefs.accent.colorLong.toInt()
 
-                // Date Range
-                views.setTextViewText(R.id.tv_weekly_dates, weeklyStats.dateRangeLabel)
+                // Background
+                val bgRes = if (isMinimal) R.drawable.bg_widget_weekly_minimal else R.drawable.bg_widget_weekly
+                views.setInt(R.id.widget_weekly_root, "setBackgroundResource", bgRes)
 
-                // Day Average e.g. "11 hr 19 min"
-                views.setTextViewText(R.id.tv_day_average_value, weeklyStats.formattedAverage())
+                // Sparkle tint
+                views.setInt(R.id.iv_weekly_sparkle, "setColorFilter", accentColorInt)
+
+                // Font styling
+                val font = prefs.widgetFont
+                fun styleText(text: String): SpannableString {
+                    val span = SpannableString(text)
+                    span.setSpan(TypefaceSpan(font.family), 0, text.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    return span
+                }
+
+                views.setTextViewText(R.id.tv_weekly_header, styleText("Weekly away time"))
+                views.setTextViewText(R.id.tv_weekly_total, styleText(weeklyStats.formattedTotal()))
+                views.setTextViewText(R.id.tv_weekly_dates, styleText(weeklyStats.dateRangeLabel))
+                views.setTextViewText(R.id.tv_day_average_value, styleText(weeklyStats.formattedAverage()))
+
+                // Day average pill background
+                if (isMinimal) {
+                    views.setInt(R.id.layout_day_average, "setBackgroundResource", R.drawable.bg_widget_small_minimal)
+                } else {
+                    views.setInt(R.id.layout_day_average, "setBackgroundResource", R.drawable.bg_pill_average)
+                }
 
                 // Weekly Chart Bitmap
                 val chartBitmap = WeeklyChartBitmapHelper.generateWeeklyChart(
-                    points = weeklyStats.dailyPoints
+                    points = weeklyStats.dailyPoints,
+                    accentColorInt = accentColorInt,
+                    fontFamily = font.family
                 )
                 views.setImageViewBitmap(R.id.iv_weekly_chart, chartBitmap)
 

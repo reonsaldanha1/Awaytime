@@ -3,6 +3,7 @@ package com.example.awaytime.data
 import android.content.Context
 import android.content.SharedPreferences
 import com.example.awaytime.model.WidgetAccent
+import com.example.awaytime.model.WidgetFont
 import com.example.awaytime.model.WidgetTheme
 
 class WidgetPreferences(context: Context) {
@@ -22,6 +23,17 @@ class WidgetPreferences(context: Context) {
             return try { WidgetAccent.valueOf(name) } catch (e: Exception) { WidgetAccent.CYBER_BLUE }
         }
         set(value) = prefs.edit().putString("accent", value.name).apply()
+
+    var widgetFont: WidgetFont
+        get() {
+            val name = prefs.getString("widget_font", WidgetFont.SANS_SERIF.name) ?: WidgetFont.SANS_SERIF.name
+            return try { WidgetFont.valueOf(name) } catch (e: Exception) { WidgetFont.SANS_SERIF }
+        }
+        set(value) = prefs.edit().putString("widget_font", value.name).apply()
+
+    var isMinimalMode: Boolean
+        get() = prefs.getBoolean("is_minimal_mode", false)
+        set(value) = prefs.edit().putBoolean("is_minimal_mode", value).apply()
 
     var showTimeline: Boolean
         get() = prefs.getBoolean("show_timeline", true)

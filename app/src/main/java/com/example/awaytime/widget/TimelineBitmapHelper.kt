@@ -15,13 +15,14 @@ object TimelineBitmapHelper {
         width: Int = 400,
         height: Int = 54,
         accentColorInt: Int = 0xFF4F8DF7.toInt(),
+        bgContainerColor: Int = 0xFF2A2B33.toInt(),
         showCursor: Boolean = true
     ): Bitmap {
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
 
         val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = 0xFF2A2B33.toInt()
+            color = bgContainerColor
             style = Paint.Style.FILL
         }
 

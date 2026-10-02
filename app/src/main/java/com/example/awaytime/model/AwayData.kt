@@ -66,7 +66,19 @@ enum class WidgetAccent(val displayName: String, val colorLong: Long) {
     MINT_GREEN("Mint Green", 0xFF69E094L),
     CORAL_PEACH("Coral Peach", 0xFFFFAB91L),
     BUBBLE_PINK("Bubble Pink", 0xFFFF80ABL),
-    SUN_YELLOW("Sun Yellow", 0xFFFFD54FL)
+    SUN_YELLOW("Sun Yellow", 0xFFFFD54FL),
+    VIOLET_PURPLE("Lavender", 0xFFA78BFAL),
+    FIRE_RED("Crimson", 0xFFFF5252L)
+}
+
+/**
+ * Fonts supported for widget text rendering.
+ */
+enum class WidgetFont(val displayName: String, val family: String) {
+    SANS_SERIF("Modern Sans", "sans-serif"),
+    MONOSPACE("Tech Mono", "monospace"),
+    SERIF("Classic Serif", "serif"),
+    CASUAL("Casual Rounded", "casual")
 }
 
 /**

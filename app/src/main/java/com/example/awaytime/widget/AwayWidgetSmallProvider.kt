@@ -9,10 +9,14 @@ import android.content.Intent
 import android.util.Log
 import android.view.View
 import android.widget.RemoteViews
+import android.text.SpannableString
+import android.text.Spanned
+import android.text.style.TypefaceSpan
 import com.example.awaytime.MainActivity
 import com.example.awaytime.R
 import com.example.awaytime.data.AwayTimeManager
 import com.example.awaytime.data.WidgetPreferences
+import com.example.awaytime.model.WidgetFont
 
 class AwayWidgetSmallProvider : AppWidgetProvider() {
 
@@ -42,23 +46,52 @@ class AwayWidgetSmallProvider : AppWidgetProvider() {
                 val prefs = WidgetPreferences(context)
                 val stats = AwayTimeManager.getTodayAwayStats(context)
 
-                // Update Away Time Text (e.g. "8h 19m")
-                views.setTextViewText(R.id.tv_away_time, stats.formattedAwayTime())
+                val isMinimal = prefs.isMinimalMode
+                val accentColorInt = if (isMinimal) 0xFFFFFFFF.toInt() else prefs.accent.colorLong.toInt()
+
+                // Background (Minimal pure black or Default rounded dark)
+                val bgRes = if (isMinimal) R.drawable.bg_widget_small_minimal else R.drawable.bg_widget_small
+                views.setInt(R.id.widget_root, "setBackgroundResource", bgRes)
+
+                // Font-styled text
+                val font = prefs.widgetFont
+                fun styleText(text: String): SpannableString {
+                    val span = SpannableString(text)
+                    span.setSpan(TypefaceSpan(font.family), 0, text.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    return span
+                }
+
+                views.setTextViewText(R.id.tv_away_label, styleText("Away"))
+                views.setTextViewText(R.id.tv_away_time, styleText(stats.formattedAwayTime()))
+
+                if (isMinimal) {
+                    views.setTextColor(R.id.tv_away_label, 0xFFAAAAAA.toInt())
+                    views.setTextColor(R.id.tv_away_time, 0xFFFFFFFF.toInt())
+                } else {
+                    views.setTextColor(R.id.tv_away_label, 0xFF9EACB9.toInt())
+                    views.setTextColor(R.id.tv_away_time, 0xFFFFFFFF.toInt())
+                }
 
                 // Update Timeline bar
                 if (prefs.showTimeline) {
                     views.setViewVisibility(R.id.iv_timeline, View.VISIBLE)
                     val timelineBitmap = TimelineBitmapHelper.generateTimelineBar(
                         intervals = stats.intervals,
-                        accentColorInt = prefs.accent.colorLong.toInt()
+                        accentColorInt = accentColorInt,
+                        bgContainerColor = if (isMinimal) 0xFF1C1D22.toInt() else 0xFF2A2B33.toInt()
                     )
                     views.setImageViewBitmap(R.id.iv_timeline, timelineBitmap)
                 } else {
                     views.setViewVisibility(R.id.iv_timeline, View.GONE)
                 }
 
-                // Sparkle icon visibility
-                views.setViewVisibility(R.id.iv_sparkle, if (prefs.showSparkle) View.VISIBLE else View.GONE)
+                // Sparkle icon visibility and accent tint
+                if (prefs.showSparkle) {
+                    views.setViewVisibility(R.id.iv_sparkle, View.VISIBLE)
+                    views.setInt(R.id.iv_sparkle, "setColorFilter", accentColorInt)
+                } else {
+                    views.setViewVisibility(R.id.iv_sparkle, View.GONE)
+                }
 
                 // Pending intent to open MainActivity
                 val intent = Intent(context, MainActivity::class.java).apply {
@@ -86,3 +119,4 @@ class AwayWidgetSmallProvider : AppWidgetProvider() {
         }
     }
 }
+

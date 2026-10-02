@@ -102,9 +102,9 @@ fun MainScreen(
     val items = listOf(
         WidgetCategoryItem("daily", "Daily Away", "Track your time away from your phone", R.drawable.ic_timer, PastelBlue),
         WidgetCategoryItem("weekly", "Weekly Away", "Weekly screen time & apps used over the week", R.drawable.ic_chart, PastelPeach),
+        WidgetCategoryItem("customize", "Customize Widget", "Accent color, fonts & minimal black/white style", R.drawable.ic_palette, PastelYellow),
         WidgetCategoryItem("streaks", "Focus & Streaks", "Current offline streak & phone-free intervals", R.drawable.ic_hourglass, PastelPink),
         WidgetCategoryItem("goals", "Daily Goals", "Set target hours and digital detox milestones", R.drawable.ic_target, PastelMint),
-        WidgetCategoryItem("themes", "Styles & Accents", "OLED Pitch Black, Radiant Blue, Nothing OS", R.drawable.ic_palette, PastelYellow),
         WidgetCategoryItem("timeline", "Timeline & Intervals", "Hourly screen-off distribution throughout the day", R.drawable.ic_chart, PastelTeal),
         WidgetCategoryItem("permissions", "Tracking & Permissions", "Usage Access permission for millisecond precision", R.drawable.ic_shield, PastelPurple)
     )
@@ -167,7 +167,7 @@ fun MainScreen(
                 if (tab == "Settings") {
                     selectedItem = items.first { it.id == "permissions" }
                 } else if (tab == "Walls") {
-                    selectedItem = items.first { it.id == "themes" }
+                    selectedItem = items.first { it.id == "customize" }
                 }
             },
             modifier = Modifier
@@ -227,6 +227,12 @@ fun MainScreen(
             // Weekly Away Screen for "Weekly Away" (screen time of week & apps used over week)
             WeeklyAwayScreen(
                 data = weeklyAwayData,
+                onDismiss = { selectedItem = null }
+            )
+        } else if (selectedItem?.id == "customize" || selectedItem?.id == "themes") {
+            // Customize Widget Screen (accent color, font, and minimal black & white)
+            CustomizeWidgetScreen(
+                prefs = prefs,
                 onDismiss = { selectedItem = null }
             )
         } else {
@@ -676,6 +682,18 @@ fun openUsageAccessSettings(context: Context) {
 }
 
 fun triggerWidgetUpdate(context: Context) {
+    try {
+        val appWidgetManager = android.appwidget.AppWidgetManager.getInstance(context)
+        val smallIds = appWidgetManager.getAppWidgetIds(android.content.ComponentName(context, com.example.awaytime.widget.AwayWidgetSmallProvider::class.java))
+        for (id in smallIds) {
+            com.example.awaytime.widget.AwayWidgetSmallProvider.updateAppWidget(context, appWidgetManager, id)
+        }
+        val weeklyIds = appWidgetManager.getAppWidgetIds(android.content.ComponentName(context, com.example.awaytime.widget.AwayWidgetWeeklyProvider::class.java))
+        for (id in weeklyIds) {
+            com.example.awaytime.widget.AwayWidgetWeeklyProvider.updateAppWidget(context, appWidgetManager, id)
+        }
+    } catch (e: Exception) {}
+
     val intent = Intent("com.example.awaytime.ACTION_REFRESH_WIDGETS").apply {
         setPackage(context.packageName)
     }

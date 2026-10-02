@@ -13,7 +13,9 @@ object WeeklyChartBitmapHelper {
     fun generateWeeklyChart(
         points: List<DayPoint>,
         width: Int = 480,
-        height: Int = 260
+        height: Int = 260,
+        accentColorInt: Int = Color.WHITE,
+        fontFamily: String = "monospace"
     ): Bitmap {
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
@@ -26,7 +28,7 @@ object WeeklyChartBitmapHelper {
         }
 
         val dotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.WHITE
+            color = accentColorInt
             style = Paint.Style.FILL
         }
 
@@ -34,7 +36,11 @@ object WeeklyChartBitmapHelper {
             color = Color.parseColor("#C7FFFFFF")
             textSize = 22f
             textAlign = Paint.Align.CENTER
-            typeface = Typeface.MONOSPACE
+            typeface = try {
+                Typeface.create(fontFamily, Typeface.NORMAL)
+            } catch (e: Exception) {
+                Typeface.MONOSPACE
+            }
         }
 
         val count = points.size.coerceAtLeast(1)
