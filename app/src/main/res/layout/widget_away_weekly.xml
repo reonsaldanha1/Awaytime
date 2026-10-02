@@ -21,8 +21,7 @@
             android:text="Weekly away time"
             android:textColor="#EEFFFFFF"
             android:textSize="14sp"
-            android:fontFamily="monospace"
-            android:letterSpacing="0.05" />
+            android:fontFamily="monospace" />
 
         <ImageView
             android:id="@+id/iv_weekly_sparkle"
@@ -30,8 +29,7 @@
             android:layout_height="22dp"
             android:layout_alignParentEnd="true"
             android:layout_centerVertical="true"
-            android:src="@drawable/ic_sparkle"
-            android:tint="#FFFFFFFF"
+            android:src="@drawable/ic_sparkle_white"
             android:contentDescription="Sparkle" />
     </RelativeLayout>
 
@@ -44,7 +42,7 @@
         android:text="30 hr 28 min"
         android:textColor="#FFFFFFFF"
         android:textSize="28sp"
-        android:fontFamily="serif" />
+        android:textStyle="bold" />
 
     <!-- Date Range -->
     <TextView
@@ -66,8 +64,10 @@
         android:background="@drawable/bg_pill_average"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:paddingHorizontal="12dp"
-        android:paddingVertical="7dp">
+        android:paddingLeft="12dp"
+        android:paddingRight="12dp"
+        android:paddingTop="7dp"
+        android:paddingBottom="7dp">
 
         <TextView
             android:layout_width="wrap_content"
@@ -83,8 +83,7 @@
             android:layout_marginStart="8dp"
             android:text="Day average"
             android:textColor="#EEFFFFFF"
-            android:textSize="13sp"
-            android:fontFamily="sans-serif-medium" />
+            android:textSize="13sp" />
 
         <TextView
             android:id="@+id/tv_day_average_value"
@@ -96,7 +95,7 @@
             android:fontFamily="monospace" />
     </LinearLayout>
 
-    <!-- Chart View (Custom Bitmap of vertical dotted lines and floating data dots) -->
+    <!-- Chart View -->
     <ImageView
         android:id="@+id/iv_weekly_chart"
         android:layout_width="match_parent"
@@ -106,7 +105,7 @@
         android:scaleType="fitXY"
         android:contentDescription="Weekly Activity Chart" />
 
-    <!-- Pager Dots at bottom -->
+    <!-- Pager Dots at bottom (using FrameLayout instead of View) -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -114,18 +113,16 @@
         android:gravity="center"
         android:orientation="horizontal">
 
-        <View
+        <FrameLayout
             android:layout_width="6dp"
             android:layout_height="6dp"
-            android:background="@drawable/bg_pill_average"
-            android:backgroundTint="#FFFFFFFF" />
+            android:background="@drawable/bg_pill_average" />
 
-        <View
+        <FrameLayout
             android:layout_width="6dp"
             android:layout_height="6dp"
             android:layout_marginStart="6dp"
-            android:background="@drawable/bg_pill_average"
-            android:backgroundTint="#40FFFFFF" />
+            android:background="@drawable/bg_pill_average" />
     </LinearLayout>
 
 </LinearLayout>

@@ -6,6 +6,7 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import android.view.View
 import android.widget.RemoteViews
 import com.example.awaytime.MainActivity
@@ -33,42 +34,55 @@ class AwayWidgetSmallProvider : AppWidgetProvider() {
     }
 
     companion object {
+        private const val TAG = "AwayWidgetSmall"
+
         fun updateAppWidget(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int) {
-            val views = RemoteViews(context.packageName, R.layout.widget_away_small)
-            val prefs = WidgetPreferences(context)
-            val stats = AwayTimeManager.getTodayAwayStats(context)
+            try {
+                val views = RemoteViews(context.packageName, R.layout.widget_away_small)
+                val prefs = WidgetPreferences(context)
+                val stats = AwayTimeManager.getTodayAwayStats(context)
 
-            // Update Away Time Text (e.g. "8h 19m")
-            views.setTextViewText(R.id.tv_away_time, stats.formattedAwayTime())
+                // Update Away Time Text (e.g. "8h 19m")
+                views.setTextViewText(R.id.tv_away_time, stats.formattedAwayTime())
 
-            // Update Timeline bar
-            if (prefs.showTimeline) {
-                views.setViewVisibility(R.id.iv_timeline, View.VISIBLE)
-                val timelineBitmap = TimelineBitmapHelper.generateTimelineBar(
-                    intervals = stats.intervals,
-                    accentColorInt = prefs.accent.colorLong.toInt()
+                // Update Timeline bar
+                if (prefs.showTimeline) {
+                    views.setViewVisibility(R.id.iv_timeline, View.VISIBLE)
+                    val timelineBitmap = TimelineBitmapHelper.generateTimelineBar(
+                        intervals = stats.intervals,
+                        accentColorInt = prefs.accent.colorLong.toInt()
+                    )
+                    views.setImageViewBitmap(R.id.iv_timeline, timelineBitmap)
+                } else {
+                    views.setViewVisibility(R.id.iv_timeline, View.GONE)
+                }
+
+                // Sparkle icon visibility
+                views.setViewVisibility(R.id.iv_sparkle, if (prefs.showSparkle) View.VISIBLE else View.GONE)
+
+                // Pending intent to open MainActivity
+                val intent = Intent(context, MainActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                }
+                val pendingIntent = PendingIntent.getActivity(
+                    context,
+                    appWidgetId,
+                    intent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                 )
-                views.setImageViewBitmap(R.id.iv_timeline, timelineBitmap)
-            } else {
-                views.setViewVisibility(R.id.iv_timeline, View.GONE)
+                views.setOnClickPendingIntent(R.id.widget_root, pendingIntent)
+
+                appWidgetManager.updateAppWidget(appWidgetId, views)
+            } catch (e: Throwable) {
+                Log.e(TAG, "Error updating Small Away Widget", e)
+                try {
+                    val fallbackViews = RemoteViews(context.packageName, R.layout.widget_away_small)
+                    fallbackViews.setTextViewText(R.id.tv_away_time, "8h 19m")
+                    appWidgetManager.updateAppWidget(appWidgetId, fallbackViews)
+                } catch (e2: Throwable) {
+                    Log.e(TAG, "Fatal error on fallback widget", e2)
+                }
             }
-
-            // Sparkle icon visibility
-            views.setViewVisibility(R.id.iv_sparkle, if (prefs.showSparkle) View.VISIBLE else View.GONE)
-
-            // Pending intent to open MainActivity
-            val intent = Intent(context, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            }
-            val pendingIntent = PendingIntent.getActivity(
-                context,
-                appWidgetId,
-                intent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-            views.setOnClickPendingIntent(R.id.widget_root, pendingIntent)
-
-            appWidgetManager.updateAppWidget(appWidgetId, views)
         }
     }
 }

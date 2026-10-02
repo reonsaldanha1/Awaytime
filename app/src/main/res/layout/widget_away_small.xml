@@ -15,7 +15,8 @@
         android:scaleType="fitXY"
         android:contentDescription="Away Timeline" />
 
-    <View
+    <!-- Spacer using FrameLayout (RemoteViews compliant) -->
+    <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1" />
@@ -38,8 +39,7 @@
                 android:layout_height="wrap_content"
                 android:text="Away"
                 android:textColor="#FF9EACB9"
-                android:textSize="13sp"
-                android:fontFamily="sans-serif-medium" />
+                android:textSize="13sp" />
 
             <TextView
                 android:id="@+id/tv_away_time"
@@ -49,8 +49,7 @@
                 android:text="8h 19m"
                 android:textColor="#FFFFFFFF"
                 android:textSize="24sp"
-                android:fontFamily="serif"
-                android:textStyle="normal" />
+                android:textStyle="bold" />
         </LinearLayout>
 
         <ImageView
