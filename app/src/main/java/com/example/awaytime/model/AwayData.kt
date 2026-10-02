@@ -124,7 +124,9 @@ data class DailyWellbeingData(
     val topApps: List<AppUsageInfo>,
     val categories: List<AppCategoryUsage>,
     val otherAppsMillis: Long,
-    val comparison: UsageComparison? = null
+    val comparison: UsageComparison? = null,
+    val totalAwayMillis: Long = 0L,
+    val formattedAwayTime: String = ""
 )
 
 /**

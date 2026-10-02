@@ -253,6 +253,8 @@ object AwayTimeManager {
             comparisonLabel = "45 m less than yesterday (-11%)"
         )
 
+        val fallbackAwayMillis = (DAY_MILLIS - fallbackTotalMillis).coerceIn(0L, DAY_MILLIS)
+
         if (!hasUsageStatsPermission(context)) {
             return DailyWellbeingData(
                 totalScreenMillis = fallbackTotalMillis,
@@ -260,7 +262,9 @@ object AwayTimeManager {
                 topApps = fallbackTopApps,
                 categories = fallbackCategories,
                 otherAppsMillis = fallbackOtherMillis,
-                comparison = fallbackComparison
+                comparison = fallbackComparison,
+                totalAwayMillis = fallbackAwayMillis,
+                formattedAwayTime = formatDuration(fallbackAwayMillis)
             )
         }
 
@@ -297,7 +301,16 @@ object AwayTimeManager {
             } catch (e: Exception) {}
 
             if (packageMap.isEmpty()) {
-                return DailyWellbeingData(fallbackTotalMillis, "6 h 21 m", fallbackTopApps, fallbackCategories, fallbackOtherMillis, fallbackComparison)
+                return DailyWellbeingData(
+                    fallbackTotalMillis,
+                    "6 h 21 m",
+                    fallbackTopApps,
+                    fallbackCategories,
+                    fallbackOtherMillis,
+                    fallbackComparison,
+                    fallbackAwayMillis,
+                    formatDuration(fallbackAwayMillis)
+                )
             }
 
             val validApps = mutableListOf<AppUsageInfo>()
@@ -359,7 +372,16 @@ object AwayTimeManager {
             }
 
             if (validApps.isEmpty()) {
-                return DailyWellbeingData(fallbackTotalMillis, "6 h 21 m", fallbackTopApps, fallbackCategories, fallbackOtherMillis)
+                return DailyWellbeingData(
+                    fallbackTotalMillis,
+                    "6 h 21 m",
+                    fallbackTopApps,
+                    fallbackCategories,
+                    fallbackOtherMillis,
+                    fallbackComparison,
+                    fallbackAwayMillis,
+                    formatDuration(fallbackAwayMillis)
+                )
             }
 
             validApps.sortByDescending { it.usageMillis }
@@ -428,16 +450,29 @@ object AwayTimeManager {
                 comparisonLabel = compLabel
             )
 
+            val awayMillis = (DAY_MILLIS - finalTotalScreenMillis).coerceIn(0L, DAY_MILLIS)
+
             return DailyWellbeingData(
                 totalScreenMillis = finalTotalScreenMillis,
                 formattedTotalScreenTime = formatDuration(finalTotalScreenMillis),
                 topApps = allApps,
                 categories = categories,
                 otherAppsMillis = otherMillis,
-                comparison = comparison
+                comparison = comparison,
+                totalAwayMillis = awayMillis,
+                formattedAwayTime = formatDuration(awayMillis)
             )
         } catch (e: Exception) {
-            return DailyWellbeingData(fallbackTotalMillis, "6 h 21 m", fallbackTopApps, fallbackCategories, fallbackOtherMillis, fallbackComparison)
+            return DailyWellbeingData(
+                fallbackTotalMillis,
+                "6 h 21 m",
+                fallbackTopApps,
+                fallbackCategories,
+                fallbackOtherMillis,
+                fallbackComparison,
+                fallbackAwayMillis,
+                formatDuration(fallbackAwayMillis)
+            )
         }
     }
 

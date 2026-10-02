@@ -129,14 +129,14 @@ fun DailyWellbeingScreen(
                                 modifier = Modifier.weight(1f)
                             ) {
                                 Text(
-                                    text = "Screen time today",
+                                    text = "Awaytime",
                                     color = TextMutedGray,
                                     fontSize = 14.5.sp,
                                     fontWeight = FontWeight.Medium
                                 )
                                 Spacer(modifier = Modifier.height(6.dp))
                                 Text(
-                                    text = data.formattedTotalScreenTime,
+                                    text = if (data.formattedAwayTime.isNotBlank()) data.formattedAwayTime else data.formattedTotalScreenTime,
                                     color = Color.White,
                                     fontSize = 32.sp,
                                     fontWeight = FontWeight.Bold,
