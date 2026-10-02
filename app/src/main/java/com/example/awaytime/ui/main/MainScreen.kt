@@ -335,6 +335,9 @@ fun MainScreen(
                 "distractions" -> DistractionsScreen(
                     onDismiss = { selectedItem = null }
                 )
+                "permissions" -> TrackingPermissionsScreen(
+                    onDismiss = { selectedItem = null }
+                )
                 else -> selectedItem?.let { item ->
                     GenericConfigPage(
                         item = item,
