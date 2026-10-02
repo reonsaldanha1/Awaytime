@@ -105,6 +105,17 @@ data class AppCategoryUsage(
 )
 
 /**
+ * Comparison metrics against previous day or previous week.
+ */
+data class UsageComparison(
+    val diffMillis: Long,
+    val formattedDiff: String,
+    val percentChange: Int,
+    val isReduction: Boolean,
+    val comparisonLabel: String
+)
+
+/**
  * Complete daily digital wellbeing stats matching Image 2.
  */
 data class DailyWellbeingData(
@@ -112,7 +123,8 @@ data class DailyWellbeingData(
     val formattedTotalScreenTime: String,
     val topApps: List<AppUsageInfo>,
     val categories: List<AppCategoryUsage>,
-    val otherAppsMillis: Long
+    val otherAppsMillis: Long,
+    val comparison: UsageComparison? = null
 )
 
 /**
@@ -136,7 +148,8 @@ data class WeeklyAwayData(
     val dailyBreakdown: List<WeeklyDayUsage>,
     val topApps: List<AppUsageInfo>,
     val categories: List<AppCategoryUsage>,
-    val otherAppsMillis: Long
+    val otherAppsMillis: Long,
+    val comparison: UsageComparison? = null
 )
 
 

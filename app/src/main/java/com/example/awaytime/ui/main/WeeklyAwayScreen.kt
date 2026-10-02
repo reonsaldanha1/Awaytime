@@ -123,6 +123,14 @@ fun WeeklyAwayScreen(
                     Column(
                         modifier = Modifier.padding(horizontal = 22.dp, vertical = 20.dp)
                     ) {
+                        val bannerMsg = if (data.comparison?.isReduction == true) {
+                            "🎉 Reduced phone usage by ${data.comparison.formattedDiff} compared to last week!"
+                        } else if (data.comparison != null) {
+                            "You used ${data.comparison.formattedDiff} more screen time than last week."
+                        } else {
+                            "${data.dateRangeLabel} • 7-day usage & apps breakdown"
+                        }
+
                         Text(
                             text = "Weekly Screen Time",
                             color = Color(0xFF4DA2FF),
@@ -131,7 +139,7 @@ fun WeeklyAwayScreen(
                         )
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = "${data.dateRangeLabel} • 7-day usage & apps breakdown",
+                            text = bannerMsg,
                             color = TextMutedGray,
                             fontSize = 13.5.sp
                         )
@@ -156,14 +164,14 @@ fun WeeklyAwayScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column {
+                            Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = "Screen time this week",
                                     color = TextMutedGray,
                                     fontSize = 14.5.sp,
                                     fontWeight = FontWeight.Medium
                                 )
-                                Spacer(modifier = Modifier.height(8.dp))
+                                Spacer(modifier = Modifier.height(6.dp))
                                 Text(
                                     text = data.formattedTotalScreenTime,
                                     color = Color.White,
@@ -171,6 +179,27 @@ fun WeeklyAwayScreen(
                                     fontWeight = FontWeight.Bold,
                                     letterSpacing = (-0.5).sp
                                 )
+
+                                data.comparison?.let { comp ->
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    val isReduction = comp.isReduction
+                                    val badgeBg = if (isReduction) Color(0xFF133825) else Color(0xFF382319)
+                                    val badgeColor = if (isReduction) Color(0xFF69E094) else Color(0xFFFF8A65)
+                                    val arrow = if (isReduction) "↓" else "↑"
+
+                                    Surface(
+                                        color = badgeBg,
+                                        shape = RoundedCornerShape(10.dp)
+                                    ) {
+                                        Text(
+                                            text = "$arrow ${comp.comparisonLabel}",
+                                            color = badgeColor,
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
+                                        )
+                                    }
+                                }
                             }
 
                             Column(horizontalAlignment = Alignment.End) {
@@ -462,8 +491,17 @@ fun WeeklyAwayScreen(
                             fontWeight = FontWeight.Bold
                         )
                         Spacer(modifier = Modifier.height(4.dp))
+
+                        val summaryNote = if (data.comparison?.isReduction == true) {
+                            "Weekly improvement: ${data.comparison.formattedDiff} less screen usage than the previous week!"
+                        } else if (data.comparison != null) {
+                            "Notice: ${data.comparison.formattedDiff} more screen usage than the previous week."
+                        } else {
+                            "Great job investing in real-world moments and focus habits."
+                        }
+
                         Text(
-                            text = "Great job investing in real-world moments and focus habits.",
+                            text = summaryNote,
                             color = TextMutedGray,
                             fontSize = 12.5.sp,
                             lineHeight = 17.sp

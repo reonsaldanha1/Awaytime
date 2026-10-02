@@ -132,6 +132,14 @@ fun DailyWellbeingScreen(
                     Column(
                         modifier = Modifier.padding(horizontal = 22.dp, vertical = 22.dp)
                     ) {
+                        val bannerSubtitle = if (data.comparison?.isReduction == true) {
+                            "Great progress! You used your phone less today than yesterday."
+                        } else if (data.comparison != null) {
+                            "You've used more screen time today. Take periodic breaks to unwind."
+                        } else {
+                            "You'll get feedback and help to keep you on track."
+                        }
+
                         Text(
                             text = "Build healthy digital habits",
                             color = Color(0xFF4DA2FF),
@@ -141,7 +149,7 @@ fun DailyWellbeingScreen(
                         )
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = "You'll get feedback and help to keep you on track.",
+                            text = bannerSubtitle,
                             color = TextMutedGray,
                             fontSize = 13.5.sp,
                             lineHeight = 18.sp
@@ -177,7 +185,7 @@ fun DailyWellbeingScreen(
                                     fontSize = 14.5.sp,
                                     fontWeight = FontWeight.Medium
                                 )
-                                Spacer(modifier = Modifier.height(8.dp))
+                                Spacer(modifier = Modifier.height(6.dp))
                                 Text(
                                     text = data.formattedTotalScreenTime,
                                     color = Color.White,
@@ -185,6 +193,27 @@ fun DailyWellbeingScreen(
                                     fontWeight = FontWeight.Bold,
                                     letterSpacing = (-0.5).sp
                                 )
+
+                                data.comparison?.let { comp ->
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    val isImprovement = comp.isReduction
+                                    val badgeBg = if (isImprovement) Color(0xFF133825) else Color(0xFF382319)
+                                    val badgeColor = if (isImprovement) Color(0xFF69E094) else Color(0xFFFF8A65)
+                                    val arrow = if (isImprovement) "↓" else "↑"
+
+                                    Surface(
+                                        color = badgeBg,
+                                        shape = RoundedCornerShape(10.dp)
+                                    ) {
+                                        Text(
+                                            text = "$arrow ${comp.comparisonLabel}",
+                                            color = badgeColor,
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
+                                        )
+                                    }
+                                }
                             }
 
                             // Donut Chart

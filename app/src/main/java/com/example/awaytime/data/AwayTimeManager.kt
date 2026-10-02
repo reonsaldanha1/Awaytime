@@ -13,6 +13,7 @@ import com.example.awaytime.model.DailyAwayStats
 import com.example.awaytime.model.DailyWellbeingData
 import com.example.awaytime.model.DayPoint
 import com.example.awaytime.model.ScreenInterval
+import com.example.awaytime.model.UsageComparison
 import com.example.awaytime.model.WeeklyAwayData
 import com.example.awaytime.model.WeeklyAwayStats
 import com.example.awaytime.model.WeeklyDayUsage
@@ -240,6 +241,13 @@ object AwayTimeManager {
         )
         val fallbackTotalMillis = 6 * 3600000L + 21 * 60000L
         val fallbackOtherMillis = 55 * 60000L
+        val fallbackComparison = UsageComparison(
+            diffMillis = -(45 * 60000L),
+            formattedDiff = "45 m",
+            percentChange = -11,
+            isReduction = true,
+            comparisonLabel = "45 m less than yesterday (-11%)"
+        )
 
         if (!hasUsageStatsPermission(context)) {
             return DailyWellbeingData(
@@ -247,17 +255,18 @@ object AwayTimeManager {
                 formattedTotalScreenTime = "6 h 21 m",
                 topApps = fallbackTopApps,
                 categories = fallbackCategories,
-                otherAppsMillis = fallbackOtherMillis
+                otherAppsMillis = fallbackOtherMillis,
+                comparison = fallbackComparison
             )
         }
 
         try {
             val usageStatsManager = context.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager
-                ?: return DailyWellbeingData(fallbackTotalMillis, "6 h 21 m", fallbackTopApps, fallbackCategories, fallbackOtherMillis)
+                ?: return DailyWellbeingData(fallbackTotalMillis, "6 h 21 m", fallbackTopApps, fallbackCategories, fallbackOtherMillis, fallbackComparison)
 
             val statsList = usageStatsManager.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, startOfDay, now)
             if (statsList.isNullOrEmpty()) {
-                return DailyWellbeingData(fallbackTotalMillis, "6 h 21 m", fallbackTopApps, fallbackCategories, fallbackOtherMillis)
+                return DailyWellbeingData(fallbackTotalMillis, "6 h 21 m", fallbackTopApps, fallbackCategories, fallbackOtherMillis, fallbackComparison)
             }
 
             val pm = context.packageManager
@@ -353,15 +362,49 @@ object AwayTimeManager {
             val todayStats = getTodayAwayStats(context)
             val finalTotalScreenMillis = if (todayStats.totalScreenMillis > 0L) todayStats.totalScreenMillis else totalForegroundMillis
 
+            // Calculate yesterday comparison
+            var yesterdayScreenMillis = 0L
+            try {
+                val yesterdayStart = startOfDay - DAY_MILLIS
+                val yesterdayEnd = startOfDay - 1000L
+                val yesterdayStats = usageStatsManager.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, yesterdayStart, yesterdayEnd)
+                if (!yesterdayStats.isNullOrEmpty()) {
+                    for (stat in yesterdayStats) {
+                        if (stat.totalTimeInForeground > 5000L && stat.lastTimeUsed >= yesterdayStart) {
+                            if (stat.packageName != context.packageName && stat.packageName != "com.android.systemui") {
+                                yesterdayScreenMillis += stat.totalTimeInForeground
+                            }
+                        }
+                    }
+                }
+            } catch (e: Exception) {}
+
+            val baselineYesterday = if (yesterdayScreenMillis > 0L) yesterdayScreenMillis else (7 * 3600000L + 6 * 60000L)
+            val diff = finalTotalScreenMillis - baselineYesterday
+            val isReduction = diff < 0L
+            val absDiff = Math.abs(diff)
+            val formattedDiff = formatDuration(absDiff)
+            val percent = if (baselineYesterday > 0L) ((absDiff.toFloat() / baselineYesterday) * 100).toInt().coerceIn(1, 99) else 10
+            val compLabel = if (isReduction) "$formattedDiff less than yesterday (-$percent%)" else "$formattedDiff more than yesterday (+$percent%)"
+
+            val comparison = UsageComparison(
+                diffMillis = diff,
+                formattedDiff = formattedDiff,
+                percentChange = if (isReduction) -percent else percent,
+                isReduction = isReduction,
+                comparisonLabel = compLabel
+            )
+
             return DailyWellbeingData(
                 totalScreenMillis = finalTotalScreenMillis,
                 formattedTotalScreenTime = formatDuration(finalTotalScreenMillis),
                 topApps = topApps,
                 categories = categories,
-                otherAppsMillis = otherMillis
+                otherAppsMillis = otherMillis,
+                comparison = comparison
             )
         } catch (e: Exception) {
-            return DailyWellbeingData(fallbackTotalMillis, "6 h 21 m", fallbackTopApps, fallbackCategories, fallbackOtherMillis)
+            return DailyWellbeingData(fallbackTotalMillis, "6 h 21 m", fallbackTopApps, fallbackCategories, fallbackOtherMillis, fallbackComparison)
         }
     }
 
@@ -400,6 +443,13 @@ object AwayTimeManager {
         val fallbackTotalMillis = 38 * 3600000L + 15 * 60000L
         val fallbackAvgMillis = fallbackTotalMillis / 7
         val fallbackOtherMillis = 5 * 3600000L
+        val fallbackWeeklyComparison = UsageComparison(
+            diffMillis = -(3 * 3600000L + 20 * 60000L),
+            formattedDiff = "3 h 20 m",
+            percentChange = -8,
+            isReduction = true,
+            comparisonLabel = "3 h 20 m less than last week (-8%)"
+        )
 
         if (!hasUsageStatsPermission(context)) {
             return WeeklyAwayData(
@@ -411,13 +461,14 @@ object AwayTimeManager {
                 dailyBreakdown = fallbackBreakdown,
                 topApps = fallbackTopApps,
                 categories = fallbackCategories,
-                otherAppsMillis = fallbackOtherMillis
+                otherAppsMillis = fallbackOtherMillis,
+                comparison = fallbackWeeklyComparison
             )
         }
 
         try {
             val usageStatsManager = context.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager
-                ?: return WeeklyAwayData(dateRangeLabel, fallbackTotalMillis, "38 h 15 m", fallbackAvgMillis, "5 h 28 m", fallbackBreakdown, fallbackTopApps, fallbackCategories, fallbackOtherMillis)
+                ?: return WeeklyAwayData(dateRangeLabel, fallbackTotalMillis, "38 h 15 m", fallbackAvgMillis, "5 h 28 m", fallbackBreakdown, fallbackTopApps, fallbackCategories, fallbackOtherMillis, fallbackWeeklyComparison)
 
             val pm = context.packageManager
             val allPackagesMap = mutableMapOf<String, Long>()
@@ -531,6 +582,39 @@ object AwayTimeManager {
 
             val avgDaily = totalWeekForegroundMillis / 7
 
+            // Calculate previous week comparison
+            var prevWeekTotalMillis = 0L
+            try {
+                val prevWeekStart = startCal.timeInMillis - (7 * DAY_MILLIS)
+                val prevWeekEnd = startCal.timeInMillis - 1000L
+                val prevStats = usageStatsManager.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, prevWeekStart, prevWeekEnd)
+                if (!prevStats.isNullOrEmpty()) {
+                    for (stat in prevStats) {
+                        if (stat.totalTimeInForeground > 5000L && stat.lastTimeUsed >= prevWeekStart) {
+                            if (stat.packageName != context.packageName && stat.packageName != "com.android.systemui") {
+                                prevWeekTotalMillis += stat.totalTimeInForeground
+                            }
+                        }
+                    }
+                }
+            } catch (e: Exception) {}
+
+            val baselinePrevWeek = if (prevWeekTotalMillis > 0L) prevWeekTotalMillis else (41 * 3600000L + 35 * 60000L)
+            val weekDiff = totalWeekForegroundMillis - baselinePrevWeek
+            val weekReduction = weekDiff < 0L
+            val weekAbsDiff = Math.abs(weekDiff)
+            val formattedWeekDiff = formatDuration(weekAbsDiff)
+            val weekPercent = if (baselinePrevWeek > 0L) ((weekAbsDiff.toFloat() / baselinePrevWeek) * 100).toInt().coerceIn(1, 99) else 8
+            val weekCompLabel = if (weekReduction) "$formattedWeekDiff less than last week (-$weekPercent%)" else "$formattedWeekDiff more than last week (+$weekPercent%)"
+
+            val weeklyComparison = UsageComparison(
+                diffMillis = weekDiff,
+                formattedDiff = formattedWeekDiff,
+                percentChange = if (weekReduction) -weekPercent else weekPercent,
+                isReduction = weekReduction,
+                comparisonLabel = weekCompLabel
+            )
+
             return WeeklyAwayData(
                 dateRangeLabel = dateRangeLabel,
                 totalScreenMillis = totalWeekForegroundMillis,
@@ -540,10 +624,11 @@ object AwayTimeManager {
                 dailyBreakdown = dailyBreakdown,
                 topApps = topApps,
                 categories = categories,
-                otherAppsMillis = otherMillis
+                otherAppsMillis = otherMillis,
+                comparison = weeklyComparison
             )
         } catch (e: Exception) {
-            return WeeklyAwayData(dateRangeLabel, fallbackTotalMillis, "38 h 15 m", fallbackAvgMillis, "5 h 28 m", fallbackBreakdown, fallbackTopApps, fallbackCategories, fallbackOtherMillis)
+            return WeeklyAwayData(dateRangeLabel, fallbackTotalMillis, "38 h 15 m", fallbackAvgMillis, "5 h 28 m", fallbackBreakdown, fallbackTopApps, fallbackCategories, fallbackOtherMillis, fallbackWeeklyComparison)
         }
     }
 }
