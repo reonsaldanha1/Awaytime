@@ -175,16 +175,6 @@ fun MainScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Subtitle
-            Text(
-                text = "Select widget to configure",
-                color = TextSecondary,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Medium
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
             // List of cards
             LazyColumn(
                 modifier = Modifier
