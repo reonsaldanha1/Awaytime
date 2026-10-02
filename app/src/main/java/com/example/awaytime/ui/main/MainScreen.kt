@@ -61,6 +61,7 @@ fun MainScreen(
     var todayStats by remember { mutableStateOf(AwayTimeManager.getTodayAwayStats(context)) }
     var weeklyStats by remember { mutableStateOf(AwayTimeManager.getWeeklyAwayStats(context)) }
     var dailyWellbeingData by remember { mutableStateOf(AwayTimeManager.getDailyWellbeingData(context)) }
+    var weeklyAwayData by remember { mutableStateOf(AwayTimeManager.getWeeklyAwayData(context)) }
 
     var selectedTheme by remember { mutableStateOf(prefs.theme) }
     var selectedAccent by remember { mutableStateOf(prefs.accent) }
@@ -71,6 +72,8 @@ fun MainScreen(
     LaunchedEffect(selectedItem) {
         if (selectedItem?.id == "daily") {
             dailyWellbeingData = AwayTimeManager.getDailyWellbeingData(context)
+        } else if (selectedItem?.id == "weekly") {
+            weeklyAwayData = AwayTimeManager.getWeeklyAwayData(context)
         }
     }
 
@@ -86,6 +89,7 @@ fun MainScreen(
                 todayStats = AwayTimeManager.getTodayAwayStats(context)
                 weeklyStats = AwayTimeManager.getWeeklyAwayStats(context)
                 dailyWellbeingData = AwayTimeManager.getDailyWellbeingData(context)
+                weeklyAwayData = AwayTimeManager.getWeeklyAwayData(context)
                 triggerWidgetUpdate(context)
             }
         }
@@ -97,7 +101,7 @@ fun MainScreen(
 
     val items = listOf(
         WidgetCategoryItem("daily", "Daily Away", "Track your time away from your phone", R.drawable.ic_timer, PastelBlue),
-        WidgetCategoryItem("weekly", "Weekly Overview", "Weekly total, day average & 7-day dot chart", R.drawable.ic_chart, PastelPeach),
+        WidgetCategoryItem("weekly", "Weekly Away", "Weekly screen time & apps used over the week", R.drawable.ic_chart, PastelPeach),
         WidgetCategoryItem("streaks", "Focus & Streaks", "Current offline streak & phone-free intervals", R.drawable.ic_hourglass, PastelPink),
         WidgetCategoryItem("goals", "Daily Goals", "Set target hours and digital detox milestones", R.drawable.ic_target, PastelMint),
         WidgetCategoryItem("themes", "Styles & Accents", "OLED Pitch Black, Radiant Blue, Nothing OS", R.drawable.ic_palette, PastelYellow),
@@ -217,6 +221,12 @@ fun MainScreen(
         if (selectedItem?.id == "daily") {
             DailyWellbeingScreen(
                 data = dailyWellbeingData,
+                onDismiss = { selectedItem = null }
+            )
+        } else if (selectedItem?.id == "weekly") {
+            // Weekly Away Screen for "Weekly Away" (screen time of week & apps used over week)
+            WeeklyAwayScreen(
+                data = weeklyAwayData,
                 onDismiss = { selectedItem = null }
             )
         } else {

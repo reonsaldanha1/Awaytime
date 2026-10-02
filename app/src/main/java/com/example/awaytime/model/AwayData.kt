@@ -103,3 +103,28 @@ data class DailyWellbeingData(
     val otherAppsMillis: Long
 )
 
+/**
+ * Screen time usage for a single day of the week.
+ */
+data class WeeklyDayUsage(
+    val dayLabel: String,
+    val screenHours: Float,
+    val isToday: Boolean = false
+)
+
+/**
+ * Complete weekly stats containing screen usage of the week and apps used over the week.
+ */
+data class WeeklyAwayData(
+    val dateRangeLabel: String,
+    val totalScreenMillis: Long,
+    val formattedTotalScreenTime: String,
+    val averageDailyScreenMillis: Long,
+    val formattedAverageDailyScreenTime: String,
+    val dailyBreakdown: List<WeeklyDayUsage>,
+    val topApps: List<AppUsageInfo>,
+    val categories: List<AppCategoryUsage>,
+    val otherAppsMillis: Long
+)
+
+
