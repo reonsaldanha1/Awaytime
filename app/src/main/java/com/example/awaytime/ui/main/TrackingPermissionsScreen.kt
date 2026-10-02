@@ -59,6 +59,20 @@ fun TrackingPermissionsScreen(
         refreshKey++
     }
 
+    // Auto-refresh when user comes back from system settings!
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                refresh()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
     // Check permissions live
     val permissions = remember(refreshKey) {
         checkPermissions(context)
@@ -386,11 +400,21 @@ private fun checkPermissions(context: Context): List<PermissionStatusItem> {
 
     // 3. Battery Optimization / Background execution
     val powerManager = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
-    val isIgnoringBatteryOptimizations = powerManager?.isIgnoringBatteryOptimizations(context.packageName) ?: false
-    val batteryDetail = if (isIgnoringBatteryOptimizations) {
-        "✓ Working properly: Unrestricted background execution enabled. Widgets refresh on screen toggle."
-    } else {
-        "○ Recommended: App battery optimization is standard. Disabling optimization prevents widgets from sleeping."
+    val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as? android.app.ActivityManager
+    
+    val isPowerIgnored = powerManager?.isIgnoringBatteryOptimizations(context.packageName) ?: false
+    val isBackgroundRestricted = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+        activityManager?.isBackgroundRestricted ?: false
+    } else false
+
+    // App is unrestricted if power optimization is ignored or background is not restricted
+    val isUnrestricted = isPowerIgnored && !isBackgroundRestricted
+    val isWorking = isPowerIgnored || !isBackgroundRestricted
+
+    val batteryDetail = when {
+        isPowerIgnored -> "✓ Working properly: Unrestricted battery usage enabled. Widgets and screen-state services run freely in the background."
+        !isBackgroundRestricted -> "✓ Active: Background execution allowed. For best widget updates, allow Unrestricted battery usage."
+        else -> "⚠ Restricted: System is restricting background execution. Tap below to set Battery usage to Unrestricted."
     }
 
     items.add(
@@ -398,21 +422,29 @@ private fun checkPermissions(context: Context): List<PermissionStatusItem> {
             id = "battery",
             title = "Battery Optimization",
             subtitle = "Ensures background widget updates and screen tracking",
-            isGranted = isIgnoringBatteryOptimizations,
-            isWorkingProperly = true,
-            statusText = if (isIgnoringBatteryOptimizations) "Unrestricted" else "Standard",
+            isGranted = isPowerIgnored,
+            isWorkingProperly = isWorking,
+            statusText = if (isPowerIgnored) "Unrestricted (Active)" else (if (!isBackgroundRestricted) "Optimized" else "Restricted"),
             details = batteryDetail,
             onAction = { c ->
                 try {
-                    val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                    // Try direct prompt first
+                    val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                        data = Uri.parse("package:${c.packageName}")
+                    }
                     c.startActivity(intent)
                 } catch (e: Exception) {
                     try {
-                        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                            data = Uri.parse("package:${c.packageName}")
-                        }
+                        val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
                         c.startActivity(intent)
-                    } catch (e2: Exception) {}
+                    } catch (e2: Exception) {
+                        try {
+                            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                data = Uri.parse("package:${c.packageName}")
+                            }
+                            c.startActivity(intent)
+                        } catch (e3: Exception) {}
+                    }
                 }
             }
         )
