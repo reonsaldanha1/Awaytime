@@ -199,16 +199,6 @@ fun FocusBlockScreen(
                 textAlign = TextAlign.Center,
                 lineHeight = 20.sp
             )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = "The only way to stop the focus timer is through the Awaytime app.",
-                color = Color(0xFF60677A),
-                fontSize = 12.5.sp,
-                textAlign = TextAlign.Center,
-                lineHeight = 18.sp
-            )
         }
     }
 }

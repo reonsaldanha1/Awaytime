@@ -244,16 +244,6 @@ class FocusMonitorService : Service() {
         overlayTimerTv = tvTimer
         centerLayout.addView(tvTimer)
 
-        // Subtitle
-        val tvSub = TextView(this).apply {
-            text = "The only way to stop this focus timer is through the Awaytime app."
-            setTextColor(Color.parseColor("#9AA0B2"))
-            textSize = 13f
-            gravity = Gravity.CENTER
-            setLineSpacing(8f, 1f)
-        }
-        centerLayout.addView(tvSub)
-
         root.addView(centerLayout)
         return root
     }
