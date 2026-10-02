@@ -123,10 +123,13 @@ fun WeeklyAwayScreen(
                     Column(
                         modifier = Modifier.padding(horizontal = 22.dp, vertical = 20.dp)
                     ) {
-                        val bannerMsg = if (data.comparison?.isReduction == true) {
-                            "🎉 Reduced phone usage by ${data.comparison.formattedDiff} compared to last week!"
-                        } else if (data.comparison != null) {
-                            "You used ${data.comparison.formattedDiff} more screen time than last week."
+                        val bannerMsg = if (data.comparison != null) {
+                            val diffText = formatDetailedDiff(data.comparison.diffMillis, data.comparison.formattedDiff)
+                            if (data.comparison.isReduction) {
+                                "You have put your phone away $diffText more than last week"
+                            } else {
+                                "You have put your phone away $diffText less than last week"
+                            }
                         } else {
                             "${data.dateRangeLabel} • 7-day usage & apps breakdown"
                         }
@@ -532,3 +535,22 @@ private fun openUsageSettings(context: Context) {
         context.startActivity(intent)
     } catch (e: Exception) {}
 }
+
+private fun formatDetailedDiff(diffMillis: Long, fallbackFormatted: String): String {
+    val absMillis = Math.abs(diffMillis)
+    val totalMinutes = absMillis / (1000 * 60)
+    val hours = totalMinutes / 60
+    val minutes = totalMinutes % 60
+    val hrStr = if (hours == 1L) "1 hour" else "$hours hours"
+    val minStr = if (minutes == 1L) "1 minute" else "$minutes minutes"
+    return when {
+        hours > 0 && minutes > 0 -> "$hrStr $minStr"
+        hours > 0 -> hrStr
+        minutes > 0 -> minStr
+        fallbackFormatted.isNotBlank() -> fallbackFormatted
+            .replace(" h", " hours")
+            .replace(" m", " minutes")
+        else -> "0 minutes"
+    }
+}
+
