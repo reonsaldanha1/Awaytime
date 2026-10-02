@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Awaytime</string>
+    <string name="widget_small_desc">Displays daily time away from your phone and activity timeline</string>
+    <string name="widget_weekly_desc">Displays weekly away time totals, daily averages and 7-day activity dot chart</string>
+    <string name="select_widget_to_configure">Select widget to configure</string>
+    <string name="daily_away_title">Daily Away</string>
+    <string name="daily_away_desc">Track your time away from your phone</string>
+    <string name="weekly_overview_title">Weekly Overview</string>
+    <string name="weekly_overview_desc">Weekly total, day average &amp; 7-day dot chart</string>
+    <string name="focus_streaks_title">Focus &amp; Streaks</string>
+    <string name="focus_streaks_desc">Current offline streak &amp; phone-free intervals</string>
+    <string name="daily_goals_title">Daily Goals</string>
+    <string name="daily_goals_desc">Set target hours and digital detox milestones</string>
+    <string name="styles_themes_title">Styles &amp; Accents</string>
+    <string name="styles_themes_desc">OLED Pitch Black, Radiant Blue, Nothing OS</string>
+    <string name="timeline_intervals_title">Timeline &amp; Intervals</string>
+    <string name="timeline_intervals_desc">Hourly screen-off distribution throughout the day</string>
+    <string name="tracking_permissions_title">Tracking &amp; Permissions</string>
+    <string name="tracking_permissions_desc">Usage Access permission for millisecond precision</string>
+</resources>

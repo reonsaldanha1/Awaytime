@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="bg_dark">#FF0D0F13</color>
+    <color name="card_dark">#FF181A22</color>
+    <color name="card_stroke">#FF262936</color>
+    <color name="text_primary">#FFFFFFFF</color>
+    <color name="text_secondary">#FF8F96A3</color>
+    <color name="text_muted">#FF646B78</color>
+
+    <!-- Widget Accent Colors -->
+    <color name="accent_blue">#FF4F8DF7</color>
+    <color name="accent_blue_light">#FFCBE5FF</color>
+    <color name="accent_peach">#FFFFD4AA</color>
+    <color name="accent_pink">#FFFFD4DF</color>
+    <color name="accent_mint">#FFD4F4DF</color>
+    <color name="accent_yellow">#FFFFF0B3</color>
+    <color name="accent_teal">#FFD0F2ED</color>
+    <color name="accent_purple">#FFE3D7FF</color>
+
+    <!-- Weekly Widget Gradients -->
+    <color name="widget_weekly_top">#FF3B82F6</color>
+    <color name="widget_weekly_bottom">#FF2563EB</color>
+    <color name="widget_small_bg">#FF18191E</color>
+</resources>

@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/bg_widget_small"
+    android:padding="16dp">
+
+    <!-- Timeline bar container at top -->
+    <ImageView
+        android:id="@+id/iv_timeline"
+        android:layout_width="match_parent"
+        android:layout_height="32dp"
+        android:scaleType="fitXY"
+        android:contentDescription="Away Timeline" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
+    <!-- Bottom details row -->
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentStart="true"
+            android:layout_centerVertical="true"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/tv_away_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Away"
+                android:textColor="#FF9EACB9"
+                android:textSize="13sp"
+                android:fontFamily="sans-serif-medium" />
+
+            <TextView
+                android:id="@+id/tv_away_time"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text="8h 19m"
+                android:textColor="#FFFFFFFF"
+                android:textSize="24sp"
+                android:fontFamily="serif"
+                android:textStyle="normal" />
+        </LinearLayout>
+
+        <ImageView
+            android:id="@+id/iv_sparkle"
+            android:layout_width="26dp"
+            android:layout_height="26dp"
+            android:layout_alignParentEnd="true"
+            android:layout_alignParentBottom="true"
+            android:layout_marginBottom="4dp"
+            android:src="@drawable/ic_sparkle"
+            android:contentDescription="Away Sparkle Icon" />
+
+    </RelativeLayout>
+
+</LinearLayout>
