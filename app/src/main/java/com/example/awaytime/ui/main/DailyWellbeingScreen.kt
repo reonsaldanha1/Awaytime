@@ -95,30 +95,6 @@ fun DailyWellbeingScreen(
                     fontWeight = FontWeight.Bold,
                     letterSpacing = (-0.3).sp
                 )
-
-                Spacer(modifier = Modifier.weight(1f))
-
-                IconButton(
-                    onClick = { openSystemWellbeing(context) }
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_bar_chart_alt),
-                        contentDescription = "Chart",
-                        tint = Color.White,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-
-                IconButton(
-                    onClick = { openUsageSettings(context) }
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_more_vert),
-                        contentDescription = "More",
-                        tint = Color.White,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
             }
 
             // Scrollable Dailyaway content

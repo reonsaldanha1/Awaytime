@@ -268,18 +268,36 @@ object AwayTimeManager {
             val usageStatsManager = context.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager
                 ?: return DailyWellbeingData(fallbackTotalMillis, "6 h 21 m", fallbackTopApps, fallbackCategories, fallbackOtherMillis, fallbackComparison)
 
-            val statsList = usageStatsManager.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, startOfDay, now)
-            if (statsList.isNullOrEmpty()) {
-                return DailyWellbeingData(fallbackTotalMillis, "6 h 21 m", fallbackTopApps, fallbackCategories, fallbackOtherMillis, fallbackComparison)
-            }
-
             val pm = context.packageManager
             val packageMap = mutableMapOf<String, Long>()
-            for (stat in statsList) {
-                if (stat.totalTimeInForeground > 15_000L && stat.lastTimeUsed >= startOfDay) {
-                    val current = packageMap[stat.packageName] ?: 0L
-                    packageMap[stat.packageName] = current + stat.totalTimeInForeground
+
+            // 1. Try queryAndAggregateUsageStats for accurate aggregation across the day
+            try {
+                val aggregated = usageStatsManager.queryAndAggregateUsageStats(startOfDay, now)
+                if (!aggregated.isNullOrEmpty()) {
+                    for ((pkg, stat) in aggregated) {
+                        if (stat.totalTimeInForeground > 1000L) {
+                            packageMap[pkg] = stat.totalTimeInForeground
+                        }
+                    }
                 }
+            } catch (e: Exception) {}
+
+            // 2. Also merge/fallback with queryUsageStats
+            try {
+                val statsList = usageStatsManager.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, startOfDay, now)
+                if (!statsList.isNullOrEmpty()) {
+                    for (stat in statsList) {
+                        if (stat.totalTimeInForeground > 1000L) {
+                            val current = packageMap[stat.packageName] ?: 0L
+                            packageMap[stat.packageName] = maxOf(current, stat.totalTimeInForeground)
+                        }
+                    }
+                }
+            } catch (e: Exception) {}
+
+            if (packageMap.isEmpty()) {
+                return DailyWellbeingData(fallbackTotalMillis, "6 h 21 m", fallbackTopApps, fallbackCategories, fallbackOtherMillis, fallbackComparison)
             }
 
             val validApps = mutableListOf<AppUsageInfo>()
@@ -578,14 +596,24 @@ object AwayTimeManager {
                 return WeeklyAwayData(dateRangeLabel, fallbackTotalMillis, "38 h 15 m", fallbackAvgMillis, "5 h 28 m", fallbackBreakdown, fallbackTopApps, fallbackCategories, fallbackOtherMillis)
             }
 
-            validApps.sortByDescending { it.usageMillis }
-            val appColors = listOf(0xFF388AF6L, 0xFF22C5E4L, 0xFF4ADE80L, 0xFFA78BFAL, 0xFFFFB74DL)
-            val topApps = validApps.take(5).mapIndexed { index, app ->
-                val color = appColors.getOrElse(index) { 0xFF6B7280L }
+            val palette = listOf(
+                0xFF388AF6L, // Blue
+                0xFF22C5E4L, // Cyan
+                0xFF4ADE80L, // Green
+                0xFFA78BFAL, // Purple
+                0xFFFFB74DL, // Orange
+                0xFFF472B6L, // Pink
+                0xFFFACC15L, // Yellow
+                0xFF2DD4BFL, // Teal
+                0xFFE879F9L, // Magenta
+                0xFFFB7185L  // Rose
+            )
+            val allWeekApps = validApps.mapIndexed { index, app ->
+                val color = palette[index % palette.size]
                 app.copy(colorLong = color)
             }
 
-            val topAppsSum = topApps.sumOf { it.usageMillis }
+            val topAppsSum = allWeekApps.sumOf { it.usageMillis }
             val otherMillis = (totalWeekForegroundMillis - topAppsSum).coerceAtLeast(0L)
 
             val displayGamesMillis = if (weekGamesMillis > 0L) weekGamesMillis else 12 * 3600000L
@@ -637,7 +665,7 @@ object AwayTimeManager {
                 averageDailyScreenMillis = avgDaily,
                 formattedAverageDailyScreenTime = formatDuration(avgDaily),
                 dailyBreakdown = dailyBreakdown,
-                topApps = topApps,
+                topApps = allWeekApps,
                 categories = categories,
                 otherAppsMillis = otherMillis,
                 comparison = weeklyComparison
