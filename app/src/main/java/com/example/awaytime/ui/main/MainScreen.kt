@@ -127,7 +127,7 @@ fun MainScreen(
 
     val items = listOf(
         WidgetCategoryItem("daily", "dailyAway", "Track your time away from your phone", R.drawable.ic_timer, PastelBlue),
-        WidgetCategoryItem("weekly", "Weekly Away", "Weekly screen time & apps used over the week", R.drawable.ic_chart, PastelPeach),
+        WidgetCategoryItem("weekly", "Weekly Away", "Weekly away time & apps used over the week", R.drawable.ic_chart, PastelPeach),
         WidgetCategoryItem("customize", "Customize Widget", "Accent color, fonts & minimal black/white style", R.drawable.ic_palette, PastelYellow),
         WidgetCategoryItem("distractions", "Distractions", "Notification reading & app distraction blocker", R.drawable.ic_bell, PastelCoral),
         WidgetCategoryItem("streaks", "Focus & Streaks", "Current offline streak & phone-free intervals", R.drawable.ic_hourglass, PastelPink),

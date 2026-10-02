@@ -519,6 +519,9 @@ object AwayTimeManager {
             comparisonLabel = "3 h 20 m less than last week (-8%)"
         )
 
+        val fallbackAwayTotalMillis = (7 * DAY_MILLIS - fallbackTotalMillis).coerceAtLeast(0L)
+        val fallbackAvgAwayMillis = fallbackAwayTotalMillis / 7
+
         if (!hasUsageStatsPermission(context)) {
             return WeeklyAwayData(
                 dateRangeLabel = dateRangeLabel,
@@ -530,13 +533,32 @@ object AwayTimeManager {
                 topApps = fallbackTopApps,
                 categories = fallbackCategories,
                 otherAppsMillis = fallbackOtherMillis,
-                comparison = fallbackWeeklyComparison
+                comparison = fallbackWeeklyComparison,
+                totalAwayMillis = fallbackAwayTotalMillis,
+                formattedTotalAwayTime = formatDuration(fallbackAwayTotalMillis),
+                averageDailyAwayMillis = fallbackAvgAwayMillis,
+                formattedAverageDailyAwayTime = formatDuration(fallbackAvgAwayMillis)
             )
         }
 
         try {
             val usageStatsManager = context.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager
-                ?: return WeeklyAwayData(dateRangeLabel, fallbackTotalMillis, "38 h 15 m", fallbackAvgMillis, "5 h 28 m", fallbackBreakdown, fallbackTopApps, fallbackCategories, fallbackOtherMillis, fallbackWeeklyComparison)
+                ?: return WeeklyAwayData(
+                    dateRangeLabel,
+                    fallbackTotalMillis,
+                    "38 h 15 m",
+                    fallbackAvgMillis,
+                    "5 h 28 m",
+                    fallbackBreakdown,
+                    fallbackTopApps,
+                    fallbackCategories,
+                    fallbackOtherMillis,
+                    fallbackWeeklyComparison,
+                    fallbackAwayTotalMillis,
+                    formatDuration(fallbackAwayTotalMillis),
+                    fallbackAvgAwayMillis,
+                    formatDuration(fallbackAvgAwayMillis)
+                )
 
             val pm = context.packageManager
             val allPackagesMap = mutableMapOf<String, Long>()
@@ -693,6 +715,9 @@ object AwayTimeManager {
                 comparisonLabel = weekCompLabel
             )
 
+            val awayWeekMillis = (7 * DAY_MILLIS - totalWeekForegroundMillis).coerceAtLeast(0L)
+            val avgDailyAway = awayWeekMillis / 7
+
             return WeeklyAwayData(
                 dateRangeLabel = dateRangeLabel,
                 totalScreenMillis = totalWeekForegroundMillis,
@@ -703,10 +728,29 @@ object AwayTimeManager {
                 topApps = allWeekApps,
                 categories = categories,
                 otherAppsMillis = otherMillis,
-                comparison = weeklyComparison
+                comparison = weeklyComparison,
+                totalAwayMillis = awayWeekMillis,
+                formattedTotalAwayTime = formatDuration(awayWeekMillis),
+                averageDailyAwayMillis = avgDailyAway,
+                formattedAverageDailyAwayTime = formatDuration(avgDailyAway)
             )
         } catch (e: Exception) {
-            return WeeklyAwayData(dateRangeLabel, fallbackTotalMillis, "38 h 15 m", fallbackAvgMillis, "5 h 28 m", fallbackBreakdown, fallbackTopApps, fallbackCategories, fallbackOtherMillis, fallbackWeeklyComparison)
+            return WeeklyAwayData(
+                dateRangeLabel,
+                fallbackTotalMillis,
+                "38 h 15 m",
+                fallbackAvgMillis,
+                "5 h 28 m",
+                fallbackBreakdown,
+                fallbackTopApps,
+                fallbackCategories,
+                fallbackOtherMillis,
+                fallbackWeeklyComparison,
+                fallbackAwayTotalMillis,
+                formatDuration(fallbackAwayTotalMillis),
+                fallbackAvgAwayMillis,
+                formatDuration(fallbackAvgAwayMillis)
+            )
         }
     }
 }

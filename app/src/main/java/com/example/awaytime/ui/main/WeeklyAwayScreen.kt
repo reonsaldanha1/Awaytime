@@ -132,7 +132,7 @@ fun WeeklyAwayScreen(
                         }
 
                         Text(
-                            text = "Weekly Screen Time",
+                            text = "Weekly Away Time",
                             color = Color(0xFF4DA2FF),
                             fontSize = 20.sp,
                             fontWeight = FontWeight.Bold
@@ -166,14 +166,14 @@ fun WeeklyAwayScreen(
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "Screen time this week",
+                                    text = "Away time this week",
                                     color = TextMutedGray,
                                     fontSize = 14.5.sp,
                                     fontWeight = FontWeight.Medium
                                 )
                                 Spacer(modifier = Modifier.height(6.dp))
                                 Text(
-                                    text = data.formattedTotalScreenTime,
+                                    text = if (data.formattedTotalAwayTime.isNotBlank()) data.formattedTotalAwayTime else data.formattedTotalScreenTime,
                                     color = Color.White,
                                     fontSize = 32.sp,
                                     fontWeight = FontWeight.Bold,
@@ -204,7 +204,7 @@ fun WeeklyAwayScreen(
 
                             Column(horizontalAlignment = Alignment.End) {
                                 Text(
-                                    text = "Daily average",
+                                    text = "Daily away avg",
                                     color = TextMutedGray,
                                     fontSize = 12.sp
                                 )
@@ -214,7 +214,7 @@ fun WeeklyAwayScreen(
                                     shape = RoundedCornerShape(12.dp)
                                 ) {
                                     Text(
-                                        text = data.formattedAverageDailyScreenTime,
+                                        text = if (data.formattedAverageDailyAwayTime.isNotBlank()) data.formattedAverageDailyAwayTime else data.formattedAverageDailyScreenTime,
                                         color = Color(0xFF38BDF8),
                                         fontSize = 13.sp,
                                         fontWeight = FontWeight.SemiBold,

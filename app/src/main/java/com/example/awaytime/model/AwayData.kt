@@ -151,7 +151,11 @@ data class WeeklyAwayData(
     val topApps: List<AppUsageInfo>,
     val categories: List<AppCategoryUsage>,
     val otherAppsMillis: Long,
-    val comparison: UsageComparison? = null
+    val comparison: UsageComparison? = null,
+    val totalAwayMillis: Long = 0L,
+    val formattedTotalAwayTime: String = "",
+    val averageDailyAwayMillis: Long = 0L,
+    val formattedAverageDailyAwayTime: String = ""
 )
 
 
