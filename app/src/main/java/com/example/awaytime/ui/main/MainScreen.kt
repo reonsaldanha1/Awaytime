@@ -338,6 +338,10 @@ fun MainScreen(
                 "permissions" -> TrackingPermissionsScreen(
                     onDismiss = { selectedItem = null }
                 )
+                "streaks", "focus" -> FocusStreaksScreen(
+                    todayStats = todayStats,
+                    onDismiss = { selectedItem = null }
+                )
                 else -> selectedItem?.let { item ->
                     GenericConfigPage(
                         item = item,

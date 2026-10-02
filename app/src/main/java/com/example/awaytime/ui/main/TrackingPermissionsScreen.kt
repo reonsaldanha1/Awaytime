@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.sp
 import com.example.awaytime.R
 import com.example.awaytime.data.AwayTimeManager
 import com.example.awaytime.data.DistractionManager
+import com.example.awaytime.data.FocusSessionManager
 import com.example.awaytime.service.DistractionNotificationListenerService
 
 private val DarkCardBg = Color(0xFF171A21)
@@ -446,6 +447,27 @@ private fun checkPermissions(context: Context): List<PermissionStatusItem> {
                         } catch (e3: Exception) {}
                     }
                 }
+            }
+        )
+    )
+
+    // 4. Display Over Other Apps Permission
+    val hasOverlay = FocusSessionManager.canDrawOverlays(context)
+    items.add(
+        PermissionStatusItem(
+            id = "overlay",
+            title = "Display Over Other Apps",
+            subtitle = "Restricts blocked apps during active Focus mode sessions",
+            isGranted = hasOverlay,
+            isWorkingProperly = hasOverlay,
+            statusText = if (hasOverlay) "Active (Enabled)" else "Missing (Required for Focus)",
+            details = if (hasOverlay) {
+                "✓ Working properly: Screen overlay permission active. Restricts access to distracting apps during deep focus sessions."
+            } else {
+                "⚠ Missing: Awaytime cannot display the focus blocking screen over restricted apps without this permission."
+            },
+            onAction = { c ->
+                FocusSessionManager.openOverlaySettings(c)
             }
         )
     )
