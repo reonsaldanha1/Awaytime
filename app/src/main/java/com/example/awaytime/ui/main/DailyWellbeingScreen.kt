@@ -57,6 +57,7 @@ fun DailyWellbeingScreen(
 
     var timersMap by remember { mutableStateOf(AppTimerManager.getAllTimers(context)) }
     var timerDialogApp by remember { mutableStateOf<AppUsageInfo?>(null) }
+    var showAllApps by remember { mutableStateOf(false) }
 
     BackHandler {
         onDismiss()
@@ -173,8 +174,10 @@ fun DailyWellbeingScreen(
 
                         Spacer(modifier = Modifier.height(26.dp))
 
-                        // All Apps used today
-                        data.topApps.forEach { app ->
+                        // Apps used today: 4 apps initially with 'More apps' button
+                        val displayedApps = if (showAllApps) data.topApps else data.topApps.take(4)
+
+                        displayedApps.forEach { app ->
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -201,6 +204,40 @@ fun DailyWellbeingScreen(
                                     fontSize = 15.sp,
                                     fontWeight = FontWeight.Medium
                                 )
+                            }
+                        }
+
+                        if (data.topApps.size > 4) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .clickable { showAllApps = !showAllApps },
+                                color = Color(0xFF1E222D),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 10.dp),
+                                    horizontalArrangement = Arrangement.Center,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = if (showAllApps) "Fewer apps" else "More apps",
+                                        color = Color(0xFF4DA2FF),
+                                        fontSize = 13.5.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.ic_chevron_right),
+                                        contentDescription = null,
+                                        tint = Color(0xFF4DA2FF),
+                                        modifier = Modifier.size(15.dp)
+                                    )
+                                }
                             }
                         }
                     }
