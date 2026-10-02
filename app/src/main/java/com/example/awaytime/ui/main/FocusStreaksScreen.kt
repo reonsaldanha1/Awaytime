@@ -6,6 +6,7 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -23,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -30,11 +32,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.core.graphics.drawable.toBitmap
 import com.example.awaytime.R
 import com.example.awaytime.data.FocusAppInfo
 import com.example.awaytime.data.FocusSessionManager
 import com.example.awaytime.model.DailyAwayStats
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import java.util.Date
 
 private val DarkCardBg = Color(0xFF171A21)
@@ -730,18 +735,23 @@ fun AllowedAppsDialog(
 ) {
     val context = LocalContext.current
     var appsList by remember { mutableStateOf<List<FocusAppInfo>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
     var selectedSet by remember { mutableStateOf(allowedPackages.toMutableSet()) }
     var searchQuery by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
-        appsList = FocusSessionManager.getInstalledLaunchableApps(context)
+        val list = withContext(Dispatchers.IO) {
+            FocusSessionManager.getInstalledLaunchableApps(context)
+        }
+        appsList = list
+        isLoading = false
     }
 
     Dialog(onDismissRequest = onDismiss) {
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .fillMaxHeight(0.82f)
+                .fillMaxHeight(0.85f)
                 .clip(RoundedCornerShape(24.dp)),
             color = Color(0xFF151821),
             shape = RoundedCornerShape(24.dp)
@@ -751,18 +761,26 @@ fun AllowedAppsDialog(
                     .fillMaxSize()
                     .padding(20.dp)
             ) {
-                Text(
-                    text = "Select Allowed Apps",
-                    color = Color.White,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Only apps checked here can be opened during Focus mode.",
-                    color = TextMutedGray,
-                    fontSize = 12.5.sp
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Select Allowed Apps",
+                            color = Color.White,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = if (isLoading) "Loading installed apps..." else "${appsList.size} apps available • ${selectedSet.size} selected",
+                            color = TextMutedGray,
+                            fontSize = 12.sp
+                        )
+                    }
+                }
 
                 Spacer(modifier = Modifier.height(14.dp))
 
@@ -770,7 +788,7 @@ fun AllowedAppsDialog(
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
-                    placeholder = { Text("Search apps...", color = TextMutedGray, fontSize = 13.sp) },
+                    placeholder = { Text("Search all apps...", color = TextMutedGray, fontSize = 13.sp) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(50.dp),
@@ -789,77 +807,162 @@ fun AllowedAppsDialog(
                 // Quick actions
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    TextButton(onClick = {
-                        val essentials = FocusSessionManager.getDefaultEssentialPackages(context)
-                        selectedSet = essentials.toMutableSet()
-                    }) {
-                        Text("Essentials Only", color = Color(0xFF4DA2FF), fontSize = 12.sp)
+                    TextButton(
+                        onClick = {
+                            val essentials = FocusSessionManager.getDefaultEssentialPackages(context)
+                            selectedSet = essentials.toMutableSet()
+                        },
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Text("Essentials", color = Color(0xFF4DA2FF), fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
                     }
 
-                    TextButton(onClick = {
-                        selectedSet.clear()
-                    }) {
-                        Text("Clear All", color = Color(0xFFFF8A65), fontSize = 12.sp)
+                    TextButton(
+                        onClick = {
+                            selectedSet = appsList.map { it.packageName }.toMutableSet()
+                        },
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Text("Select All", color = Color(0xFF69E094), fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
+                    }
+
+                    TextButton(
+                        onClick = {
+                            selectedSet.clear()
+                        },
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Text("Clear All", color = Color(0xFFFF8A65), fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
 
                 Spacer(modifier = Modifier.height(6.dp))
 
-                // Apps list
-                val filtered = appsList.filter {
-                    searchQuery.isBlank() || it.appName.contains(searchQuery, ignoreCase = true) || it.packageName.contains(searchQuery, ignoreCase = true)
-                }
+                if (isLoading) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(
+                            color = Color(0xFF4DA2FF),
+                            strokeWidth = 3.dp,
+                            modifier = Modifier.size(36.dp)
+                        )
+                    }
+                } else {
+                    // Apps list
+                    val filtered = appsList.filter {
+                        searchQuery.isBlank() || it.appName.contains(searchQuery, ignoreCase = true) || it.packageName.contains(searchQuery, ignoreCase = true)
+                    }
 
-                LazyColumn(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                ) {
-                    items(filtered, key = { it.packageName }) { app ->
-                        val isChecked = selectedSet.contains(app.packageName)
-                        Row(
+                    if (filtered.isEmpty()) {
+                        Box(
                             modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "No apps found matching \"$searchQuery\"",
+                                color = TextMutedGray,
+                                fontSize = 13.sp
+                            )
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier
+                                .weight(1f)
                                 .fillMaxWidth()
-                                .clickable {
-                                    if (isChecked) {
-                                        selectedSet = (selectedSet - app.packageName).toMutableSet()
-                                    } else {
-                                        selectedSet = (selectedSet + app.packageName).toMutableSet()
+                        ) {
+                            items(filtered, key = { it.packageName }) { app ->
+                                val isChecked = selectedSet.contains(app.packageName)
+                                val appIconBitmap = remember(app.packageName) {
+                                    try {
+                                        val drawable = context.packageManager.getApplicationIcon(app.packageName)
+                                        drawable.toBitmap(width = 64, height = 64).asImageBitmap()
+                                    } catch (e: Exception) {
+                                        null
                                     }
                                 }
-                                .padding(vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Checkbox(
-                                checked = isChecked,
-                                onCheckedChange = { checked ->
-                                    if (checked) {
-                                        selectedSet = (selectedSet + app.packageName).toMutableSet()
-                                    } else {
-                                        selectedSet = (selectedSet - app.packageName).toMutableSet()
-                                    }
-                                },
-                                colors = CheckboxDefaults.colors(
-                                    checkedColor = Color(0xFF388AF6),
-                                    uncheckedColor = Color(0xFF5A6072)
-                                )
-                            )
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = app.appName,
-                                    color = Color.White,
-                                    fontSize = 14.5.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                                if (app.isSystemEssential) {
-                                    Text(
-                                        text = "System Essential (Calls/Phone)",
-                                        color = Color(0xFF69E094),
-                                        fontSize = 11.sp
+
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .clickable {
+                                            if (isChecked) {
+                                                selectedSet = (selectedSet - app.packageName).toMutableSet()
+                                            } else {
+                                                selectedSet = (selectedSet + app.packageName).toMutableSet()
+                                            }
+                                        }
+                                        .padding(vertical = 7.dp, horizontal = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Checkbox(
+                                        checked = isChecked,
+                                        onCheckedChange = { checked ->
+                                            if (checked) {
+                                                selectedSet = (selectedSet + app.packageName).toMutableSet()
+                                            } else {
+                                                selectedSet = (selectedSet - app.packageName).toMutableSet()
+                                            }
+                                        },
+                                        colors = CheckboxDefaults.colors(
+                                            checkedColor = Color(0xFF388AF6),
+                                            uncheckedColor = Color(0xFF5A6072)
+                                        )
                                     )
+                                    Spacer(modifier = Modifier.width(8.dp))
+
+                                    if (appIconBitmap != null) {
+                                        Image(
+                                            bitmap = appIconBitmap,
+                                            contentDescription = null,
+                                            modifier = Modifier
+                                                .size(32.dp)
+                                                .clip(RoundedCornerShape(8.dp))
+                                        )
+                                    } else {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(32.dp)
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .background(Color(0xFF2A2E3D)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = app.appName.firstOrNull()?.uppercase() ?: "?",
+                                                color = Color.White,
+                                                fontSize = 14.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.width(12.dp))
+
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = app.appName,
+                                            color = Color.White,
+                                            fontSize = 14.5.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            maxLines = 1
+                                        )
+                                        if (app.isSystemEssential) {
+                                            Text(
+                                                text = "System Essential (Phone/Dialer)",
+                                                color = Color(0xFF69E094),
+                                                fontSize = 11.sp
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }

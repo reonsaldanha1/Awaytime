@@ -229,43 +229,91 @@ object FocusSessionManager {
 
     fun getInstalledLaunchableApps(context: Context): List<FocusAppInfo> {
         val pm = context.packageManager
-        val mainIntent = Intent(Intent.ACTION_MAIN, null).apply {
-            addCategory(Intent.CATEGORY_LAUNCHER)
-        }
-        val resolveList = pm.queryIntentActivities(mainIntent, 0)
         val allowedSet = getAllowedPackages(context)
         val defaultEssentials = getDefaultEssentialPackages(context)
 
         val result = mutableListOf<FocusAppInfo>()
         val seen = mutableSetOf<String>()
 
-        for (ri in resolveList) {
-            val pkg = ri.activityInfo?.packageName ?: continue
-            if (pkg == context.packageName) continue // Awaytime itself
-            if (seen.contains(pkg)) continue
-            seen.add(pkg)
-
-            val appName = try {
-                ri.loadLabel(pm).toString()
-            } catch (e: Exception) {
-                pkg
+        // 1. Query all launcher intent activities (apps visible in launcher drawer)
+        try {
+            val mainIntent = Intent(Intent.ACTION_MAIN, null).apply {
+                addCategory(Intent.CATEGORY_LAUNCHER)
             }
+            val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                PackageManager.MATCH_ALL
+            } else {
+                0
+            }
+            val resolveList = pm.queryIntentActivities(mainIntent, flags)
+            for (ri in resolveList) {
+                val pkg = ri.activityInfo?.packageName ?: continue
+                if (pkg == context.packageName) continue // Awaytime itself
+                if (seen.contains(pkg)) continue
+                seen.add(pkg)
 
-            val isEssential = defaultEssentials.contains(pkg) ||
-                    appName.contains("phone", ignoreCase = true) ||
-                    appName.contains("call", ignoreCase = true) ||
-                    pkg.contains("dialer", ignoreCase = true)
+                val appName = try {
+                    ri.loadLabel(pm).toString().takeIf { it.isNotBlank() }
+                } catch (e: Exception) { null } ?: try {
+                    val ai = pm.getApplicationInfo(pkg, 0)
+                    pm.getApplicationLabel(ai).toString()
+                } catch (e2: Exception) { pkg }
 
-            result.add(
-                FocusAppInfo(
-                    packageName = pkg,
-                    appName = appName,
-                    isAllowed = allowedSet.contains(pkg) || isEssential,
-                    isSystemEssential = isEssential
+                val isEssential = defaultEssentials.contains(pkg) ||
+                        appName.contains("phone", ignoreCase = true) ||
+                        appName.contains("call", ignoreCase = true) ||
+                        pkg.contains("dialer", ignoreCase = true)
+
+                result.add(
+                    FocusAppInfo(
+                        packageName = pkg,
+                        appName = appName,
+                        isAllowed = allowedSet.contains(pkg),
+                        isSystemEssential = isEssential
+                    )
                 )
-            )
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
 
-        return result.sortedBy { it.appName.lowercase() }
+        // 2. Comprehensive fallback: Query all installed applications that have a launch intent
+        try {
+            val installedApps = pm.getInstalledApplications(PackageManager.GET_META_DATA)
+            for (appInfo in installedApps) {
+                val pkg = appInfo.packageName ?: continue
+                if (pkg == context.packageName) continue
+                if (seen.contains(pkg)) continue
+
+                val launchIntent = pm.getLaunchIntentForPackage(pkg)
+                if (launchIntent != null) {
+                    seen.add(pkg)
+                    val appName = try {
+                        pm.getApplicationLabel(appInfo).toString()
+                    } catch (e: Exception) { pkg }
+
+                    val isEssential = defaultEssentials.contains(pkg) ||
+                            appName.contains("phone", ignoreCase = true) ||
+                            appName.contains("call", ignoreCase = true) ||
+                            pkg.contains("dialer", ignoreCase = true)
+
+                    result.add(
+                        FocusAppInfo(
+                            packageName = pkg,
+                            appName = appName,
+                            isAllowed = allowedSet.contains(pkg),
+                            isSystemEssential = isEssential
+                        )
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        return result.sortedWith(
+            compareByDescending<FocusAppInfo> { it.isSystemEssential }
+                .thenBy { it.appName.lowercase() }
+        )
     }
 }
