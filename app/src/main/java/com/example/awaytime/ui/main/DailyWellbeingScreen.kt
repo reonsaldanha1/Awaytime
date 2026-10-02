@@ -90,7 +90,7 @@ fun DailyWellbeingScreen(
                 Spacer(modifier = Modifier.width(6.dp))
 
                 Text(
-                    text = "dailyAway",
+                    text = "Dailyaway",
                     color = Color.White,
                     fontSize = 22.sp,
                     fontWeight = FontWeight.Bold,

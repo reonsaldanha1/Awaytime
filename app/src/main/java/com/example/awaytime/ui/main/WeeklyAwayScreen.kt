@@ -74,7 +74,7 @@ fun WeeklyAwayScreen(
                 Spacer(modifier = Modifier.width(6.dp))
 
                 Text(
-                    text = "Weekly Away",
+                    text = "Weeklyaway",
                     color = Color.White,
                     fontSize = 22.sp,
                     fontWeight = FontWeight.Bold,
