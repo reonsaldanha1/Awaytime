@@ -202,15 +202,15 @@ fun MainScreen(
             }
         }
 
-        // Floating Bottom Navigation Bar matching Image 4
+        // Floating Bottom Navigation Bar: Widget & Settings
         FloatingBottomBar(
             currentTab = currentTab,
             onTabSelected = { tab ->
                 currentTab = tab
-                if (tab == "Settings") {
-                    selectedItem = items.first { it.id == "permissions" }
-                } else if (tab == "Walls") {
+                if (tab == "Widget") {
                     selectedItem = items.first { it.id == "customize" }
+                } else if (tab == "Settings") {
+                    selectedItem = items.first { it.id == "permissions" }
                 }
             },
             modifier = Modifier
@@ -580,17 +580,9 @@ fun FloatingBottomBar(
             modifier = Modifier
                 .padding(horizontal = 8.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            // Settings Tab
-            BottomNavItem(
-                title = "Settings",
-                iconRes = R.drawable.ic_settings,
-                isSelected = currentTab == "Settings",
-                onClick = { onTabSelected("Settings") }
-            )
-
-            // Widget Tab (Active pill style)
+            // Widget Tab (opens Customize Widget)
             BottomNavItem(
                 title = "Widget",
                 iconRes = R.drawable.ic_widgets_grid,
@@ -598,12 +590,12 @@ fun FloatingBottomBar(
                 onClick = { onTabSelected("Widget") }
             )
 
-            // Walls Tab
+            // Settings Tab
             BottomNavItem(
-                title = "Walls",
-                iconRes = R.drawable.ic_wallpaper,
-                isSelected = currentTab == "Walls",
-                onClick = { onTabSelected("Walls") }
+                title = "Settings",
+                iconRes = R.drawable.ic_settings,
+                isSelected = currentTab == "Settings",
+                onClick = { onTabSelected("Settings") }
             )
         }
     }
