@@ -46,6 +46,26 @@ fun DistractionsScreen(
         distractions = DistractionManager.getDistractions(context)
     }
 
+    DisposableEffect(context) {
+        val receiver = object : android.content.BroadcastReceiver() {
+            override fun onReceive(c: Context?, intent: Intent?) {
+                refresh()
+            }
+        }
+        val filter = android.content.IntentFilter("com.example.awaytime.ACTION_DISTRACTIONS_UPDATED")
+        androidx.core.content.ContextCompat.registerReceiver(
+            context,
+            receiver,
+            filter,
+            androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED
+        )
+        onDispose {
+            try {
+                context.unregisterReceiver(receiver)
+            } catch (e: Exception) {}
+        }
+    }
+
     BackHandler {
         onDismiss()
     }
@@ -253,6 +273,21 @@ fun DistractionsScreen(
                                         fontSize = 14.5.sp,
                                         fontWeight = FontWeight.SemiBold
                                     )
+                                    if (item.count > 1) {
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Surface(
+                                            color = Color(0xFF263042),
+                                            shape = RoundedCornerShape(8.dp)
+                                        ) {
+                                            Text(
+                                                text = "${item.count}",
+                                                color = Color(0xFF64B5F6),
+                                                fontSize = 11.5.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                            )
+                                        }
+                                    }
                                     Spacer(modifier = Modifier.weight(1f))
                                     Text(
                                         text = item.formattedTime(),

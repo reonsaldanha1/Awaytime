@@ -19,7 +19,9 @@ data class DistractionItem(
     val text: String,
     val timestamp: Long,
     val isBlocked: Boolean = false,
-    val colorLong: Long = 0xFF4F8DF7L
+    val colorLong: Long = 0xFF4F8DF7L,
+    val count: Int = 1,
+    val sbnKey: String = ""
 ) {
     fun formattedTime(): String {
         val diff = System.currentTimeMillis() - timestamp
@@ -83,20 +85,53 @@ object DistractionManager {
         }
         getPrefs(context).edit().putStringSet(KEY_BLOCKED_PACKAGES, current).apply()
 
-        // Also update existing notification items
-        synchronized(recentNotifications) {
-            for (i in recentNotifications.indices) {
-                if (recentNotifications[i].packageName == packageName) {
-                    recentNotifications[i] = recentNotifications[i].copy(isBlocked = blocked)
-                }
-            }
+        if (blocked) {
+            DistractionNotificationListenerService.dismissNotificationsForPackage(packageName)
         }
     }
 
     fun addNotification(context: Context, item: DistractionItem) {
         synchronized(recentNotifications) {
-            recentNotifications.removeAll { it.id == item.id }
-            recentNotifications.add(0, item)
+            // Check if there is an existing notification from the same package with similar content (e.g. charging or same title)
+            val isCharging = item.title.contains("charging", ignoreCase = true) ||
+                             item.text.contains("charging", ignoreCase = true) ||
+                             item.title.contains("battery", ignoreCase = true) ||
+                             item.text.contains("battery", ignoreCase = true)
+
+            val existingIndex = recentNotifications.indexOfFirst { existing ->
+                if (existing.packageName != item.packageName) return@indexOfFirst false
+                if (isCharging) {
+                    val exCharging = existing.title.contains("charging", ignoreCase = true) ||
+                                     existing.text.contains("charging", ignoreCase = true) ||
+                                     existing.title.contains("battery", ignoreCase = true) ||
+                                     existing.text.contains("battery", ignoreCase = true)
+                    if (exCharging) return@indexOfFirst true
+                }
+                // Also pile up if same title or same sbnKey
+                (item.sbnKey.isNotBlank() && existing.sbnKey == item.sbnKey) ||
+                (existing.title.equals(item.title, ignoreCase = true))
+            }
+
+            if (existingIndex != -1) {
+                val existing = recentNotifications[existingIndex]
+                val updatedCount = existing.count + 1
+                // Replace with newest content/timestamp and bumped count
+                val updated = item.copy(
+                    id = existing.id,
+                    count = updatedCount,
+                    // If latest title/text is not empty use it, otherwise keep previous
+                    title = if (item.title.isNotBlank()) item.title else existing.title,
+                    text = if (item.text.isNotBlank()) item.text else existing.text,
+                    timestamp = item.timestamp,
+                    isBlocked = item.isBlocked
+                )
+                recentNotifications.removeAt(existingIndex)
+                recentNotifications.add(0, updated)
+            } else {
+                recentNotifications.removeAll { it.id == item.id }
+                recentNotifications.add(0, item)
+            }
+
             if (recentNotifications.size > 100) {
                 recentNotifications.removeAt(recentNotifications.lastIndex)
             }
