@@ -4,6 +4,8 @@ import android.app.AppOpsManager
 import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
 import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Process
 import com.example.awaytime.R
@@ -126,19 +128,9 @@ object AwayTimeManager {
                 intervals.add(ScreenInterval(lastEventTime, now, isAway = true))
             }
 
-            // 2. Also check package usage stats total foreground time as cross-check (deduplicated by package)
+            // 2. Cross-check with package usage stats strictly for apps used today
             val packageMap = mutableMapOf<String, Long>()
-            try {
-                val aggregated = usageStatsManager.queryAndAggregateUsageStats(startOfDay, now)
-                if (!aggregated.isNullOrEmpty()) {
-                    for ((pkg, stat) in aggregated) {
-                        if (pkg != context.packageName && pkg != "com.android.systemui" && stat.totalTimeInForeground > 1000L) {
-                            packageMap[pkg] = stat.totalTimeInForeground
-                        }
-                    }
-                }
-            } catch (e: Exception) {}
-
+            val elapsedToday = (now - startOfDay).coerceAtLeast(0L)
             try {
                 val statsList = usageStatsManager.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, startOfDay, now)
                 if (!statsList.isNullOrEmpty()) {
@@ -146,14 +138,14 @@ object AwayTimeManager {
                         val pkg = stat.packageName
                         if (pkg != context.packageName && pkg != "com.android.systemui" && stat.totalTimeInForeground > 1000L && stat.lastTimeUsed >= startOfDay) {
                             val current = packageMap[pkg] ?: 0L
-                            packageMap[pkg] = maxOf(current, stat.totalTimeInForeground)
+                            val bounded = minOf(stat.totalTimeInForeground, elapsedToday)
+                            packageMap[pkg] = maxOf(current, bounded)
                         }
                     }
                 }
             } catch (e: Exception) {}
 
             val totalAppForegroundTime = packageMap.values.sum()
-            val elapsedToday = (now - startOfDay).coerceAtLeast(0L)
             totalInteractiveMillis = maxOf(totalInteractiveMillis, totalAppForegroundTime).coerceIn(0L, elapsedToday)
         } catch (e: Exception) {
             totalInteractiveMillis = 5 * 3600 * 1000L
@@ -346,46 +338,92 @@ object AwayTimeManager {
 
             val pm = context.packageManager
             val packageMap = mutableMapOf<String, Long>()
-
             val elapsedToday = (now - startOfDay).coerceAtLeast(0L)
 
-            // 1. Try queryAndAggregateUsageStats for accurate aggregation across the day
+            // Detect home/launcher packages so we don't treat the home screen as an app
+            val homeIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+            val homeResolves = pm.queryIntentActivities(homeIntent, PackageManager.MATCH_DEFAULT_ONLY)
+            val homePackages = homeResolves.mapNotNull { it.activityInfo?.packageName }.toSet()
+
+            // Detect keyboard / IME packages
+            val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager
+            val imePackages = imm?.enabledInputMethodList?.map { it.packageName }?.toSet() ?: emptySet()
+
+            // 1. Primary accurate source: UsageEvents between startOfDay (00:00:00) and now
             try {
-                val aggregated = usageStatsManager.queryAndAggregateUsageStats(startOfDay, now)
-                if (!aggregated.isNullOrEmpty()) {
-                    for ((pkg, stat) in aggregated) {
-                        if (pkg != context.packageName && pkg != "com.android.systemui" && stat.totalTimeInForeground > 1000L) {
-                            packageMap[pkg] = minOf(stat.totalTimeInForeground, elapsedToday)
+                val events = usageStatsManager.queryEvents(startOfDay, now)
+                val event = UsageEvents.Event()
+                var currentForegroundPkg: String? = null
+                var currentForegroundStart = 0L
+
+                while (events.hasNextEvent()) {
+                    events.getNextEvent(event)
+                    val pkg = event.packageName ?: continue
+                    val eventType = event.eventType
+                    val time = event.timeStamp.coerceIn(startOfDay, now)
+
+                    when (eventType) {
+                        UsageEvents.Event.ACTIVITY_RESUMED,
+                        UsageEvents.Event.MOVE_TO_FOREGROUND -> {
+                            if (currentForegroundPkg != null && currentForegroundPkg != pkg) {
+                                val duration = time - currentForegroundStart
+                                if (duration > 0L) {
+                                    packageMap[currentForegroundPkg!!] = (packageMap[currentForegroundPkg!!] ?: 0L) + duration
+                                }
+                            }
+                            currentForegroundPkg = pkg
+                            currentForegroundStart = time
+                        }
+                        UsageEvents.Event.ACTIVITY_PAUSED,
+                        UsageEvents.Event.ACTIVITY_STOPPED,
+                        UsageEvents.Event.MOVE_TO_BACKGROUND -> {
+                            if (currentForegroundPkg == pkg) {
+                                val duration = time - currentForegroundStart
+                                if (duration > 0L) {
+                                    packageMap[pkg] = (packageMap[pkg] ?: 0L) + duration
+                                }
+                                currentForegroundPkg = null
+                            }
+                        }
+                        UsageEvents.Event.SCREEN_NON_INTERACTIVE -> {
+                            if (currentForegroundPkg != null) {
+                                val duration = time - currentForegroundStart
+                                if (duration > 0L) {
+                                    packageMap[currentForegroundPkg!!] = (packageMap[currentForegroundPkg!!] ?: 0L) + duration
+                                }
+                                currentForegroundPkg = null
+                            }
                         }
                     }
                 }
-            } catch (e: Exception) {}
 
-            // 2. Also merge/fallback with queryUsageStats
+                // If an app is still open right now
+                if (currentForegroundPkg != null && now > currentForegroundStart) {
+                    val duration = now - currentForegroundStart
+                    if (duration > 0L) {
+                        packageMap[currentForegroundPkg!!] = (packageMap[currentForegroundPkg!!] ?: 0L) + duration
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+
+            // 2. Cross-check / supplement with queryUsageStats STRICTLY filtered to apps used today
             try {
                 val statsList = usageStatsManager.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, startOfDay, now)
                 if (!statsList.isNullOrEmpty()) {
                     for (stat in statsList) {
-                        val pkg = stat.packageName
-                        if (pkg != context.packageName && pkg != "com.android.systemui" && stat.totalTimeInForeground > 1000L && stat.lastTimeUsed >= startOfDay) {
+                        val pkg = stat.packageName ?: continue
+                        // MUST be used today (after startOfDay)
+                        if (stat.lastTimeUsed >= startOfDay && stat.totalTimeInForeground > 1000L) {
                             val current = packageMap[pkg] ?: 0L
-                            packageMap[pkg] = minOf(maxOf(current, stat.totalTimeInForeground), elapsedToday)
+                            val bounded = minOf(stat.totalTimeInForeground, elapsedToday)
+                            packageMap[pkg] = maxOf(current, bounded)
                         }
                     }
                 }
-            } catch (e: Exception) {}
-
-            if (packageMap.isEmpty()) {
-                return DailyWellbeingData(
-                    fallbackTotalMillis,
-                    "6 h 21 m",
-                    fallbackTopApps,
-                    fallbackCategories,
-                    fallbackOtherMillis,
-                    fallbackComparison,
-                    fallbackAwayMillis,
-                    formatDuration(fallbackAwayMillis)
-                )
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
 
             val validApps = mutableListOf<AppUsageInfo>()
@@ -395,24 +433,40 @@ object AwayTimeManager {
 
             for ((pkg, duration) in packageMap) {
                 if (pkg == context.packageName || pkg == "com.android.systemui") continue
+                if (homePackages.contains(pkg)) continue
+                if (imePackages.contains(pkg)) continue
 
-                val appName = try {
-                    val ai = pm.getApplicationInfo(pkg, 0)
-                    pm.getApplicationLabel(ai).toString()
+                // Check app info and launch intent
+                val appInfo = try {
+                    pm.getApplicationInfo(pkg, 0)
                 } catch (e: Exception) {
+                    null
+                } ?: continue
+
+                val launchIntent = pm.getLaunchIntentForPackage(pkg)
+                val isSystemApp = (appInfo.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM) != 0
+
+                // Filter out system background components that have no launcher activity
+                if (isSystemApp && launchIntent == null) {
                     continue
                 }
 
+                val appName = try {
+                    pm.getApplicationLabel(appInfo).toString()
+                } catch (e: Exception) {
+                    pkg
+                }
+
+                // Filter out noise / micro-glances under 3 seconds
+                if (duration < 3000L) continue
+
                 var category = "Other"
-                try {
-                    val ai = pm.getApplicationInfo(pkg, 0)
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        when (ai.category) {
-                            android.content.pm.ApplicationInfo.CATEGORY_GAME -> category = "Games"
-                            android.content.pm.ApplicationInfo.CATEGORY_SOCIAL -> category = "Social"
-                        }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    when (appInfo.category) {
+                        android.content.pm.ApplicationInfo.CATEGORY_GAME -> category = "Games"
+                        android.content.pm.ApplicationInfo.CATEGORY_SOCIAL -> category = "Social"
                     }
-                } catch (e: Exception) {}
+                }
 
                 val lowerPkg = pkg.lowercase(Locale.ROOT)
                 val lowerName = appName.lowercase(Locale.ROOT)
@@ -446,19 +500,6 @@ object AwayTimeManager {
                 )
             }
 
-            if (validApps.isEmpty()) {
-                return DailyWellbeingData(
-                    fallbackTotalMillis,
-                    "6 h 21 m",
-                    fallbackTopApps,
-                    fallbackCategories,
-                    fallbackOtherMillis,
-                    fallbackComparison,
-                    fallbackAwayMillis,
-                    formatDuration(fallbackAwayMillis)
-                )
-            }
-
             validApps.sortByDescending { it.usageMillis }
 
             val palette = listOf(
@@ -480,12 +521,9 @@ object AwayTimeManager {
 
             val topAppsSum = allApps.sumOf { it.usageMillis }
 
-            val displayGamesMillis = if (gamesTotalMillis > 0L) gamesTotalMillis else 2 * 3600000L
-            val displaySocialMillis = if (socialTotalMillis > 0L) socialTotalMillis else 45 * 60000L
-
             val categories = listOf(
-                AppCategoryUsage("Games", displayGamesMillis, formatDuration(displayGamesMillis), R.drawable.ic_gamepad, 0xFF388AF6L),
-                AppCategoryUsage("Social", displaySocialMillis, formatDuration(displaySocialMillis), R.drawable.ic_chat, 0xFF22C5E4L)
+                AppCategoryUsage("Games", gamesTotalMillis, formatDuration(gamesTotalMillis), R.drawable.ic_gamepad, 0xFF388AF6L),
+                AppCategoryUsage("Social", socialTotalMillis, formatDuration(socialTotalMillis), R.drawable.ic_chat, 0xFF22C5E4L)
             )
 
             val todayStats = getTodayAwayStats(context)
@@ -501,7 +539,7 @@ object AwayTimeManager {
                 val yesterdayPkgMap = mutableMapOf<String, Long>()
                 if (!yesterdayStats.isNullOrEmpty()) {
                     for (stat in yesterdayStats) {
-                        if (stat.totalTimeInForeground > 5000L && stat.lastTimeUsed >= yesterdayStart) {
+                        if (stat.totalTimeInForeground > 3000L && stat.lastTimeUsed >= yesterdayStart) {
                             if (stat.packageName != context.packageName && stat.packageName != "com.android.systemui") {
                                 val cur = yesterdayPkgMap[stat.packageName] ?: 0L
                                 yesterdayPkgMap[stat.packageName] = maxOf(cur, stat.totalTimeInForeground)
@@ -512,7 +550,7 @@ object AwayTimeManager {
                 yesterdayScreenMillis = yesterdayPkgMap.values.sum().coerceIn(0L, DAY_MILLIS)
             } catch (e: Exception) {}
 
-            val baselineYesterday = if (yesterdayScreenMillis > 0L) yesterdayScreenMillis else (7 * 3600000L + 6 * 60000L)
+            val baselineYesterday = if (yesterdayScreenMillis > 0L) yesterdayScreenMillis else (3 * 3600000L)
             val diff = finalTotalScreenMillis - baselineYesterday
             val isReduction = diff < 0L
             val absDiff = Math.abs(diff)
@@ -541,15 +579,17 @@ object AwayTimeManager {
                 formattedAwayTime = formatDuration(awayMillis)
             )
         } catch (e: Exception) {
+            val emptyComparison = UsageComparison(0L, "0 m", 0, false, "0 m compared to yesterday")
+            val todayStats = getTodayAwayStats(context)
             return DailyWellbeingData(
-                fallbackTotalMillis,
-                "6 h 21 m",
-                fallbackTopApps,
-                fallbackCategories,
-                fallbackOtherMillis,
-                fallbackComparison,
-                fallbackAwayMillis,
-                formatDuration(fallbackAwayMillis)
+                totalScreenMillis = todayStats.totalScreenMillis,
+                formattedTotalScreenTime = formatDuration(todayStats.totalScreenMillis),
+                topApps = emptyList(),
+                categories = emptyList(),
+                otherAppsMillis = 0L,
+                comparison = emptyComparison,
+                totalAwayMillis = todayStats.totalAwayMillis,
+                formattedAwayTime = formatDuration(todayStats.totalAwayMillis)
             )
         }
     }
@@ -647,6 +687,13 @@ object AwayTimeManager {
 
             val dayLabelFormat = SimpleDateFormat("EEE", Locale.getDefault())
 
+            val homeIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+            val homeResolves = pm.queryIntentActivities(homeIntent, PackageManager.MATCH_DEFAULT_ONLY)
+            val homePackages = homeResolves.mapNotNull { it.activityInfo?.packageName }.toSet()
+
+            val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager
+            val imePackages = imm?.enabledInputMethodList?.map { it.packageName }?.toSet() ?: emptySet()
+
             // Iterate over the last 7 days
             for (i in 6 downTo 0) {
                 val cal = Calendar.getInstance()
@@ -665,10 +712,12 @@ object AwayTimeManager {
 
                 if (!dayStats.isNullOrEmpty()) {
                     for (stat in dayStats) {
-                        if (stat.totalTimeInForeground > 5_000L && stat.lastTimeUsed >= dayStart) {
-                            if (stat.packageName == context.packageName || stat.packageName == "com.android.systemui") continue
-                            val cur = dayPkgMap[stat.packageName] ?: 0L
-                            dayPkgMap[stat.packageName] = maxOf(cur, stat.totalTimeInForeground)
+                        val pkg = stat.packageName ?: continue
+                        if (stat.totalTimeInForeground > 3_000L && stat.lastTimeUsed >= dayStart) {
+                            if (pkg == context.packageName || pkg == "com.android.systemui") continue
+                            if (homePackages.contains(pkg) || imePackages.contains(pkg)) continue
+                            val cur = dayPkgMap[pkg] ?: 0L
+                            dayPkgMap[pkg] = maxOf(cur, stat.totalTimeInForeground)
                         }
                     }
                 }
@@ -687,23 +736,34 @@ object AwayTimeManager {
 
             val validApps = mutableListOf<AppUsageInfo>()
             for ((pkg, duration) in allPackagesMap) {
-                val appName = try {
-                    val ai = pm.getApplicationInfo(pkg, 0)
-                    pm.getApplicationLabel(ai).toString()
+                val appInfo = try {
+                    pm.getApplicationInfo(pkg, 0)
                 } catch (e: Exception) {
+                    null
+                } ?: continue
+
+                val launchIntent = pm.getLaunchIntentForPackage(pkg)
+                val isSystemApp = (appInfo.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM) != 0
+
+                if (isSystemApp && launchIntent == null) {
                     continue
                 }
 
+                val appName = try {
+                    pm.getApplicationLabel(appInfo).toString()
+                } catch (e: Exception) {
+                    pkg
+                }
+
+                if (duration < 5000L) continue
+
                 var category = "Other"
-                try {
-                    val ai = pm.getApplicationInfo(pkg, 0)
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        when (ai.category) {
-                            android.content.pm.ApplicationInfo.CATEGORY_GAME -> category = "Games"
-                            android.content.pm.ApplicationInfo.CATEGORY_SOCIAL -> category = "Social"
-                        }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    when (appInfo.category) {
+                        android.content.pm.ApplicationInfo.CATEGORY_GAME -> category = "Games"
+                        android.content.pm.ApplicationInfo.CATEGORY_SOCIAL -> category = "Social"
                     }
-                } catch (e: Exception) {}
+                }
 
                 val lowerPkg = pkg.lowercase(Locale.ROOT)
                 val lowerName = appName.lowercase(Locale.ROOT)
@@ -733,9 +793,7 @@ object AwayTimeManager {
                 )
             }
 
-            if (validApps.isEmpty()) {
-                return WeeklyAwayData(dateRangeLabel, fallbackTotalMillis, "38 h 15 m", fallbackAvgMillis, "5 h 28 m", fallbackBreakdown, fallbackTopApps, fallbackCategories, fallbackOtherMillis)
-            }
+            validApps.sortByDescending { it.usageMillis }
 
             val palette = listOf(
                 0xFF388AF6L, // Blue
@@ -757,11 +815,9 @@ object AwayTimeManager {
             val topAppsSum = allWeekApps.sumOf { it.usageMillis }
             val otherMillis = (totalWeekForegroundMillis - topAppsSum).coerceAtLeast(0L)
 
-            val displayGamesMillis = if (weekGamesMillis > 0L) weekGamesMillis else 12 * 3600000L
-            val displaySocialMillis = if (weekSocialMillis > 0L) weekSocialMillis else 8 * 3600000L
             val categories = listOf(
-                AppCategoryUsage("Games", displayGamesMillis, formatDuration(displayGamesMillis), R.drawable.ic_gamepad, 0xFF388AF6L),
-                AppCategoryUsage("Social", displaySocialMillis, formatDuration(displaySocialMillis), R.drawable.ic_chat, 0xFF22C5E4L)
+                AppCategoryUsage("Games", weekGamesMillis, formatDuration(weekGamesMillis), R.drawable.ic_gamepad, 0xFF388AF6L),
+                AppCategoryUsage("Social", weekSocialMillis, formatDuration(weekSocialMillis), R.drawable.ic_chat, 0xFF22C5E4L)
             )
 
             val avgDaily = totalWeekForegroundMillis / 7

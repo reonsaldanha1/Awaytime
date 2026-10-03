@@ -210,36 +210,44 @@ fun DailyWellbeingScreen(
 
                         Spacer(modifier = Modifier.height(10.dp))
 
-                        // Apps used today: 4 apps initially with 'More apps' button
-                        val displayedApps = if (showAllApps) displayData.topApps else displayData.topApps.take(4)
+                        if (displayData.topApps.isEmpty()) {
+                            Text(
+                                text = "No apps used today yet",
+                                color = TextMutedGray,
+                                fontSize = 14.sp,
+                                modifier = Modifier.padding(vertical = 10.dp)
+                            )
+                        } else {
+                            val displayedApps = if (showAllApps) displayData.topApps else displayData.topApps.take(4)
 
-                        displayedApps.forEach { app ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 5.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Box(
+                            displayedApps.forEach { app ->
+                                Row(
                                     modifier = Modifier
-                                        .size(8.dp)
-                                        .clip(CircleShape)
-                                        .background(Color(app.colorLong))
-                                )
-                                Spacer(modifier = Modifier.width(14.dp))
-                                Text(
-                                    text = app.appName,
-                                    color = Color.White,
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                                Spacer(modifier = Modifier.weight(1f))
-                                Text(
-                                    text = app.formattedDuration,
-                                    color = Color.White,
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
+                                        .fillMaxWidth()
+                                        .padding(vertical = 5.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(8.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(app.colorLong))
+                                    )
+                                    Spacer(modifier = Modifier.width(14.dp))
+                                    Text(
+                                        text = app.appName,
+                                        color = Color.White,
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                    Spacer(modifier = Modifier.weight(1f))
+                                    Text(
+                                        text = app.formattedDuration,
+                                        color = Color.White,
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
                             }
                         }
 

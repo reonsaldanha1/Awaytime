@@ -329,14 +329,22 @@ fun WeeklyAwayScreen(
                     Column(
                         modifier = Modifier.padding(22.dp)
                     ) {
-                        val maxAppMillis = (displayData.topApps.maxOfOrNull { it.usageMillis } ?: 1L).coerceAtLeast(1L)
+                        if (displayData.topApps.isEmpty()) {
+                            Text(
+                                text = "No app usage recorded this week yet",
+                                color = TextMutedGray,
+                                fontSize = 14.sp,
+                                modifier = Modifier.padding(vertical = 10.dp)
+                            )
+                        } else {
+                            val maxAppMillis = (displayData.topApps.maxOfOrNull { it.usageMillis } ?: 1L).coerceAtLeast(1L)
 
-                        displayData.topApps.forEachIndexed { index, app ->
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 8.dp)
-                            ) {
+                            displayData.topApps.forEachIndexed { index, app ->
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 8.dp)
+                                ) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     verticalAlignment = Alignment.CenterVertically
@@ -377,6 +385,7 @@ fun WeeklyAwayScreen(
                                 )
                             }
                         }
+                    }
                     }
                 }
 
