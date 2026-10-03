@@ -44,8 +44,10 @@ import com.example.awaytime.model.WeeklyAwayStats
 import com.example.awaytime.model.WidgetAccent
 import com.example.awaytime.model.WidgetTheme
 import com.example.awaytime.theme.*
-
 import com.example.awaytime.data.AppTimerManager
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 data class WidgetCategoryItem(
     val id: String,
@@ -100,6 +102,8 @@ fun MainScreen(
     var showSparkle by remember { mutableStateOf(prefs.showSparkle) }
     var targetHours by remember { mutableStateOf(prefs.targetGoalHours) }
 
+    val coroutineScope = rememberCoroutineScope()
+
     // Sequential permission check: if usage permission is already granted, prompt notification permission if not yet asked
     LaunchedEffect(hasPermission) {
         if (hasPermission && !hasNotificationPermission && !prefs.hasPromptedNotificationPermission) {
@@ -110,9 +114,11 @@ fun MainScreen(
 
     LaunchedEffect(selectedItem) {
         if (selectedItem?.id == "daily") {
-            dailyWellbeingData = AwayTimeManager.getDailyWellbeingData(context)
+            val fresh = withContext(Dispatchers.IO) { AwayTimeManager.getDailyWellbeingData(context) }
+            dailyWellbeingData = fresh
         } else if (selectedItem?.id == "weekly") {
-            weeklyAwayData = AwayTimeManager.getWeeklyAwayData(context)
+            val fresh = withContext(Dispatchers.IO) { AwayTimeManager.getWeeklyAwayData(context) }
+            weeklyAwayData = fresh
         }
     }
 
@@ -131,12 +137,20 @@ fun MainScreen(
                         prefs.hasPromptedNotificationPermission = true
                     }
                 }
-                todayStats = AwayTimeManager.getTodayAwayStats(context)
-                weeklyStats = AwayTimeManager.getWeeklyAwayStats(context)
-                dailyWellbeingData = AwayTimeManager.getDailyWellbeingData(context)
-                weeklyAwayData = AwayTimeManager.getWeeklyAwayData(context)
-                AppTimerManager.startOrUpdateMonitoring(context)
-                triggerWidgetUpdate(context)
+                coroutineScope.launch(Dispatchers.IO) {
+                    val tStats = AwayTimeManager.getTodayAwayStats(context)
+                    val wStats = AwayTimeManager.getWeeklyAwayStats(context)
+                    val dData = AwayTimeManager.getDailyWellbeingData(context)
+                    val wData = AwayTimeManager.getWeeklyAwayData(context)
+                    withContext(Dispatchers.Main) {
+                        todayStats = tStats
+                        weeklyStats = wStats
+                        dailyWellbeingData = dData
+                        weeklyAwayData = wData
+                    }
+                    AppTimerManager.startOrUpdateMonitoring(context)
+                    triggerWidgetUpdate(context)
+                }
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -145,14 +159,9 @@ fun MainScreen(
         }
     }
 
-    val homeScale by animateFloatAsState(
-        targetValue = if (selectedItem != null) 0.94f else 1f,
-        animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing),
-        label = "homeScale"
-    )
     val homeAlpha by animateFloatAsState(
         targetValue = if (selectedItem != null) 0.5f else 1f,
-        animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing),
+        animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
         label = "homeAlpha"
     )
 
@@ -165,8 +174,6 @@ fun MainScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .graphicsLayer {
-                    scaleX = homeScale
-                    scaleY = homeScale
                     alpha = homeAlpha
                 }
                 .padding(horizontal = 20.dp)
@@ -192,7 +199,7 @@ fun MainScreen(
                 contentPadding = PaddingValues(bottom = 100.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                items(items) { item ->
+                items(items, key = { it.id }) { item ->
                     WidgetConfigCard(
                         item = item,
                         onClick = { selectedItem = item }
@@ -215,8 +222,6 @@ fun MainScreen(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .graphicsLayer {
-                    scaleX = homeScale
-                    scaleY = homeScale
                     alpha = homeAlpha
                 }
                 .padding(bottom = 24.dp)
@@ -312,21 +317,17 @@ fun MainScreen(
             )
         }
 
-        // Fullscreen pages transition with smooth zoom in animation
+        // Fullscreen pages transition with fast fluid native slide & fade
         AnimatedVisibility(
             visible = selectedItem != null,
-            enter = fadeIn(animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)) +
-                    scaleIn(
-                        initialScale = 0.85f,
-                        transformOrigin = TransformOrigin.Center,
-                        animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)
-                    ),
-            exit = fadeOut(animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing)) +
-                   scaleOut(
-                       targetScale = 0.85f,
-                       transformOrigin = TransformOrigin.Center,
-                       animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing)
-                   )
+            enter = slideInHorizontally(
+                initialOffsetX = { fullWidth -> (fullWidth * 0.15f).toInt() },
+                animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing)
+            ) + fadeIn(animationSpec = tween(durationMillis = 180, easing = LinearOutSlowInEasing)),
+            exit = slideOutHorizontally(
+                targetOffsetX = { fullWidth -> (fullWidth * 0.15f).toInt() },
+                animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing)
+            ) + fadeOut(animationSpec = tween(durationMillis = 160, easing = FastOutSlowInEasing))
         ) {
             when (selectedItem?.id) {
                 "daily" -> DailyWellbeingScreen(
@@ -500,11 +501,8 @@ fun WidgetConfigCard(
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val cardScale by animateFloatAsState(
-        targetValue = if (isPressed) 0.96f else 1f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessLow
-        ),
+        targetValue = if (isPressed) 0.97f else 1f,
+        animationSpec = tween(durationMillis = 80, easing = LinearEasing),
         label = "cardPressScale"
     )
 
@@ -519,7 +517,7 @@ fun WidgetConfigCard(
             .border(1.dp, CardStroke, RoundedCornerShape(20.dp))
             .clickable(
                 interactionSource = interactionSource,
-                indication = null,
+                indication = ripple(color = item.badgeColor),
                 onClick = onClick
             ),
         color = CardDark

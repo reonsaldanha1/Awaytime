@@ -33,6 +33,7 @@ import com.example.awaytime.data.AppTimerItem
 import com.example.awaytime.data.AppTimerManager
 import com.example.awaytime.data.FocusSessionManager
 import com.example.awaytime.theme.PastelCoral
+import com.example.awaytime.util.AppIconCache
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -71,17 +72,19 @@ fun AppTimersScreen(
         onDismiss()
     }
 
-    val totalLimited = appsList.count { it.isTimerSet }
-    val totalReached = appsList.count { it.isLimitReached }
+    val totalLimited = remember(appsList) { appsList.count { it.isTimerSet } }
+    val totalReached = remember(appsList) { appsList.count { it.isLimitReached } }
 
-    val filteredApps = appsList.filter { item ->
-        val matchesSearch = searchQuery.isBlank() || item.appName.contains(searchQuery, ignoreCase = true)
-        val matchesFilter = when (selectedFilter) {
-            "Limits Set" -> item.isTimerSet
-            "Reached" -> item.isLimitReached
-            else -> true
+    val filteredApps = remember(appsList, searchQuery, selectedFilter) {
+        appsList.filter { item ->
+            val matchesSearch = searchQuery.isBlank() || item.appName.contains(searchQuery, ignoreCase = true)
+            val matchesFilter = when (selectedFilter) {
+                "Limits Set" -> item.isTimerSet
+                "Reached" -> item.isLimitReached
+                else -> true
+            }
+            matchesSearch && matchesFilter
         }
-        matchesSearch && matchesFilter
     }
 
     Box(
@@ -397,7 +400,7 @@ fun AppTimerRow(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // App Icon
-                AppIconBox(drawable = item.iconDrawable)
+                AppIconBox(packageName = item.packageName, drawable = item.iconDrawable)
 
                 Spacer(modifier = Modifier.width(14.dp))
 
@@ -492,26 +495,14 @@ fun AppTimerRow(
 }
 
 @Composable
-fun AppIconBox(drawable: Drawable?) {
-    val bitmap = remember(drawable) {
-        drawable?.let {
-            try {
-                val width = if (it.intrinsicWidth > 0) it.intrinsicWidth else 48
-                val height = if (it.intrinsicHeight > 0) it.intrinsicHeight else 48
-                val bm = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-                val canvas = Canvas(bm)
-                it.setBounds(0, 0, canvas.width, canvas.height)
-                it.draw(canvas)
-                bm
-            } catch (e: Exception) {
-                null
-            }
-        }
+fun AppIconBox(packageName: String, drawable: Drawable?) {
+    val bitmap = remember(packageName, drawable) {
+        AppIconCache.getOrCreate(packageName, drawable)
     }
 
     if (bitmap != null) {
         Image(
-            bitmap = bitmap.asImageBitmap(),
+            bitmap = bitmap,
             contentDescription = null,
             modifier = Modifier
                 .size(42.dp)
@@ -582,7 +573,7 @@ fun SetAppTimerDialog(
         shape = RoundedCornerShape(24.dp),
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                AppIconBox(drawable = app.iconDrawable)
+                AppIconBox(packageName = app.packageName, drawable = app.iconDrawable)
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
                     Text(

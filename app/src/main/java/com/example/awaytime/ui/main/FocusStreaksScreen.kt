@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import com.example.awaytime.util.AppIconCache
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -857,8 +858,10 @@ fun AllowedAppsDialog(
                     }
                 } else {
                     // Apps list
-                    val filtered = appsList.filter {
-                        searchQuery.isBlank() || it.appName.contains(searchQuery, ignoreCase = true) || it.packageName.contains(searchQuery, ignoreCase = true)
+                    val filtered = remember(appsList, searchQuery) {
+                        appsList.filter {
+                            searchQuery.isBlank() || it.appName.contains(searchQuery, ignoreCase = true) || it.packageName.contains(searchQuery, ignoreCase = true)
+                        }
                     }
 
                     if (filtered.isEmpty()) {
@@ -883,12 +886,7 @@ fun AllowedAppsDialog(
                             items(filtered, key = { it.packageName }) { app ->
                                 val isChecked = selectedSet.contains(app.packageName)
                                 val appIconBitmap = remember(app.packageName) {
-                                    try {
-                                        val drawable = context.packageManager.getApplicationIcon(app.packageName)
-                                        drawable.toBitmap(width = 64, height = 64).asImageBitmap()
-                                    } catch (e: Exception) {
-                                        null
-                                    }
+                                    AppIconCache.getOrLoadFromPackageManager(context, app.packageName)
                                 }
 
                                 Row(

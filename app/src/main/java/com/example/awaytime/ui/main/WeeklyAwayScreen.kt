@@ -31,6 +31,8 @@ import androidx.compose.ui.unit.sp
 import com.example.awaytime.R
 import com.example.awaytime.data.AwayTimeManager
 import com.example.awaytime.model.WeeklyAwayData
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 private val DarkCardBg = Color(0xFF0C0D12)
 private val DarkCardBorder = Color(0xFF1C1F28)
@@ -48,10 +50,12 @@ fun WeeklyAwayScreen(
     var currentData by remember(data) { mutableStateOf(data) }
 
     LaunchedEffect(Unit) {
-        currentData = AwayTimeManager.getWeeklyAwayData(context)
+        val fresh = withContext(Dispatchers.IO) { AwayTimeManager.getWeeklyAwayData(context) }
+        currentData = fresh
         while (true) {
             kotlinx.coroutines.delay(20000L)
-            currentData = AwayTimeManager.getWeeklyAwayData(context)
+            val updated = withContext(Dispatchers.IO) { AwayTimeManager.getWeeklyAwayData(context) }
+            currentData = updated
         }
     }
 

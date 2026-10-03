@@ -44,6 +44,7 @@ fun DistractionsScreen(
     var selectedTab by remember { mutableStateOf("notifications") } // "notifications" or "blocked"
     var isBlockerEnabled by remember { mutableStateOf(DistractionManager.isNotificationBlockerEnabled(context)) }
     var blockerMode by remember { mutableStateOf(DistractionManager.getNotificationBlockerMode(context)) }
+    var blockedPackages by remember { mutableStateOf(DistractionManager.getBlockedPackages(context)) }
     var showAddAppBlockDialog by remember { mutableStateOf(false) }
 
     fun refresh() {
@@ -51,6 +52,7 @@ fun DistractionsScreen(
         distractions = DistractionManager.getDistractions(context)
         isBlockerEnabled = DistractionManager.isNotificationBlockerEnabled(context)
         blockerMode = DistractionManager.getNotificationBlockerMode(context)
+        blockedPackages = DistractionManager.getBlockedPackages(context)
     }
 
     DisposableEffect(context) {
@@ -169,7 +171,6 @@ fun DistractionsScreen(
 
                 // Master Notification Blocker Card
                 item {
-                    val blockedPackages = DistractionManager.getBlockedPackages(context)
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()

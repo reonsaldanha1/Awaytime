@@ -43,6 +43,9 @@ import com.example.awaytime.R
 import com.example.awaytime.data.AppTimerManager
 import com.example.awaytime.data.AwayTimeManager
 import com.example.awaytime.model.AppUsageInfo
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import com.example.awaytime.model.DailyWellbeingData
 
 private val DarkCardBg = Color(0xFF0C0D12)
@@ -64,11 +67,18 @@ fun DailyWellbeingScreen(
     var showAllApps by remember { mutableStateOf(false) }
 
     val lifecycleOwner = LocalLifecycleOwner.current
+    val coroutineScope = rememberCoroutineScope()
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                currentData = AwayTimeManager.getDailyWellbeingData(context)
-                timersMap = AppTimerManager.getAllTimers(context)
+                coroutineScope.launch(Dispatchers.IO) {
+                    val freshData = AwayTimeManager.getDailyWellbeingData(context)
+                    val tMap = AppTimerManager.getAllTimers(context)
+                    withContext(Dispatchers.Main) {
+                        currentData = freshData
+                        timersMap = tMap
+                    }
+                }
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -78,10 +88,12 @@ fun DailyWellbeingScreen(
     }
 
     LaunchedEffect(Unit) {
-        currentData = AwayTimeManager.getDailyWellbeingData(context)
+        val freshData = withContext(Dispatchers.IO) { AwayTimeManager.getDailyWellbeingData(context) }
+        currentData = freshData
         while (true) {
-            kotlinx.coroutines.delay(5000L)
-            currentData = AwayTimeManager.getDailyWellbeingData(context)
+            kotlinx.coroutines.delay(6000L)
+            val updated = withContext(Dispatchers.IO) { AwayTimeManager.getDailyWellbeingData(context) }
+            currentData = updated
         }
     }
 
@@ -235,7 +247,9 @@ fun DailyWellbeingScreen(
                                 modifier = Modifier.padding(vertical = 10.dp)
                             )
                         } else {
-                            val displayedApps = if (showAllApps) displayData.topApps else displayData.topApps.take(4)
+                            val displayedApps = remember(displayData.topApps, showAllApps) {
+                                if (showAllApps) displayData.topApps else displayData.topApps.take(4)
+                            }
 
                             displayedApps.forEach { app ->
                                 Row(
@@ -443,8 +457,12 @@ fun DailyWellbeingScreen(
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        val appsWithTimers = displayData.topApps.filter { timersMap.containsKey(it.packageName) }
-                        val appsWithoutTimers = displayData.topApps.filter { !timersMap.containsKey(it.packageName) }
+                        val appsWithTimers = remember(displayData.topApps, timersMap) {
+                            displayData.topApps.filter { timersMap.containsKey(it.packageName) }
+                        }
+                        val appsWithoutTimers = remember(displayData.topApps, timersMap) {
+                            displayData.topApps.filter { !timersMap.containsKey(it.packageName) }
+                        }
 
                         // Section for active timers
                         if (appsWithTimers.isNotEmpty()) {

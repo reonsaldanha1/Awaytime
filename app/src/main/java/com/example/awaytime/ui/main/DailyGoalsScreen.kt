@@ -57,14 +57,18 @@ fun DailyGoalsScreen(
         onDismiss()
     }
 
-    val totalGoals = goals.size
-    val completedGoals = goals.count { it.isCompleted }
-    val progress = if (totalGoals > 0) completedGoals.toFloat() / totalGoals.toFloat() else 0f
+    val totalGoals = remember(goals) { goals.size }
+    val completedGoals = remember(goals) { goals.count { it.isCompleted } }
+    val progress = remember(totalGoals, completedGoals) {
+        if (totalGoals > 0) completedGoals.toFloat() / totalGoals.toFloat() else 0f
+    }
 
-    val filteredGoals = when (selectedFilter) {
-        "Active" -> goals.filter { !it.isCompleted }
-        "Completed" -> goals.filter { it.isCompleted }
-        else -> goals
+    val filteredGoals = remember(goals, selectedFilter) {
+        when (selectedFilter) {
+            "Active" -> goals.filter { !it.isCompleted }
+            "Completed" -> goals.filter { it.isCompleted }
+            else -> goals
+        }
     }
 
     Box(
