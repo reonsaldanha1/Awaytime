@@ -4,6 +4,7 @@ import android.app.TimePickerDialog
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -205,7 +206,7 @@ fun DailyGoalsScreen(
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(
-                                        text = "Awaytime sends a reminder 10 min before each task deadline",
+                                        text = "Awaytime sends notifications 10 min prior and right on your deadline",
                                         color = TextMutedGray,
                                         fontSize = 12.sp,
                                         lineHeight = 16.sp
@@ -450,14 +451,14 @@ fun GoalItemCard(
                         }
                     }
 
-                    // 10-Minute Reminder Chip
+                    // Dual Reminder Alerts Chip
                     if (!goal.isCompleted && !isOverdue) {
                         Surface(
                             color = Color(0xFF161F29),
                             shape = RoundedCornerShape(8.dp)
                         ) {
                             Text(
-                                text = "🔔 10m reminder set",
+                                text = "🔔 10m & due alerts",
                                 color = TextMutedGray,
                                 fontSize = 11.sp,
                                 modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
@@ -726,15 +727,16 @@ fun AddGoalDialog(
                 val reminderFormatted = SimpleDateFormat("h:mm a", Locale.getDefault()).format(reminderCalendar.time)
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    color = Color(0xFF161F29),
-                    shape = RoundedCornerShape(10.dp)
+                    color = Color(0xFF0C0D12),
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, Color(0xFF1C1F28))
                 ) {
                     Row(
                         modifier = Modifier.padding(10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "🔔 Reminder notification will be sent at $reminderFormatted (10 min before deadline)",
+                            text = "🔔 2 notifications will be sent:\n• 10 min prior at $reminderFormatted\n• On deadline at $formattedTime",
                             color = Color(0xFF90A4AE),
                             fontSize = 11.5.sp,
                             lineHeight = 16.sp

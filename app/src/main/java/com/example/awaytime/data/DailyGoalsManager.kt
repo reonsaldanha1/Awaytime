@@ -1,6 +1,7 @@
 package com.example.awaytime.data
 
 import android.app.AlarmManager
+import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
@@ -106,38 +107,78 @@ object DailyGoalsManager {
         saveGoals(context, currentList)
     }
 
-    fun scheduleReminder(context: Context, goal: DailyGoal) {
+    fun scheduleReminder(context: Context, goal: DailyGoal, allowImmediatePreReminder: Boolean = true) {
         if (goal.isCompleted) return
 
-        val reminderTime = goal.targetTimeMillis - (10 * 60 * 1000L) // 10 minutes before
         val now = System.currentTimeMillis()
-
         if (goal.targetTimeMillis <= now) {
             // Already expired, no reminder needed
             return
         }
 
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
+
+        // 1. Schedule 10-Minute Prior Reminder
+        val reminder10MinTime = goal.targetTimeMillis - (10 * 60 * 1000L)
+        if (reminder10MinTime > now) {
+            scheduleSingleAlarm(
+                context = context,
+                alarmManager = alarmManager,
+                goal = goal,
+                triggerAt = reminder10MinTime,
+                reminderType = GoalReminderReceiver.TYPE_10_MIN_PRIOR,
+                requestCode = (goal.id + "_10min").hashCode()
+            )
+            Log.d(TAG, "Scheduled 10-min reminder for goal '${goal.title}' at $reminder10MinTime")
+        } else if (allowImmediatePreReminder && goal.targetTimeMillis - now > 60_000L) {
+            // Target is within 10 minutes but more than 1 min away: notify shortly
+            scheduleSingleAlarm(
+                context = context,
+                alarmManager = alarmManager,
+                goal = goal,
+                triggerAt = now + 2000L,
+                reminderType = GoalReminderReceiver.TYPE_10_MIN_PRIOR,
+                requestCode = (goal.id + "_10min").hashCode()
+            )
+            Log.d(TAG, "Scheduled immediate 10-min reminder for goal '${goal.title}' at ${now + 2000L}")
+        }
+
+        // 2. Schedule On-Time Reminder (at target deadline)
+        if (goal.targetTimeMillis > now) {
+            scheduleSingleAlarm(
+                context = context,
+                alarmManager = alarmManager,
+                goal = goal,
+                triggerAt = goal.targetTimeMillis,
+                reminderType = GoalReminderReceiver.TYPE_ON_TIME,
+                requestCode = (goal.id + "_due").hashCode()
+            )
+            Log.d(TAG, "Scheduled on-time reminder for goal '${goal.title}' at ${goal.targetTimeMillis}")
+        }
+    }
+
+    private fun scheduleSingleAlarm(
+        context: Context,
+        alarmManager: AlarmManager,
+        goal: DailyGoal,
+        triggerAt: Long,
+        reminderType: String,
+        requestCode: Int
+    ) {
         val intent = Intent(context, GoalReminderReceiver::class.java).apply {
             action = GoalReminderReceiver.ACTION_GOAL_REMINDER
             putExtra(GoalReminderReceiver.EXTRA_GOAL_ID, goal.id)
             putExtra(GoalReminderReceiver.EXTRA_GOAL_TITLE, goal.title)
             putExtra(GoalReminderReceiver.EXTRA_TARGET_TIME, goal.targetTimeMillis)
+            putExtra(GoalReminderReceiver.EXTRA_REMINDER_TYPE, reminderType)
         }
 
         val pendingIntent = PendingIntent.getBroadcast(
             context,
-            goal.id.hashCode(),
+            requestCode,
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-
-        val triggerAt = if (reminderTime <= now) {
-            // Target is less than 10 minutes away! Notify shortly (within 2 seconds)
-            now + 2000L
-        } else {
-            reminderTime
-        }
 
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -151,9 +192,8 @@ object DailyGoalsManager {
             } else {
                 alarmManager.setExact(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent)
             }
-            Log.d(TAG, "Scheduled reminder for goal '${goal.title}' at $triggerAt (target: ${goal.targetTimeMillis})")
         } catch (e: Exception) {
-            Log.e(TAG, "Error scheduling alarm with AlarmManager", e)
+            Log.e(TAG, "Error scheduling alarm with AlarmManager for type $reminderType", e)
         }
     }
 
@@ -163,17 +203,50 @@ object DailyGoalsManager {
             val intent = Intent(context, GoalReminderReceiver::class.java).apply {
                 action = GoalReminderReceiver.ACTION_GOAL_REMINDER
             }
-            val pendingIntent = PendingIntent.getBroadcast(
+
+            // Cancel 10-minute prior alarm
+            val prePendingIntent = PendingIntent.getBroadcast(
+                context,
+                (goalId + "_10min").hashCode(),
+                intent,
+                PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+            )
+            if (prePendingIntent != null) {
+                alarmManager.cancel(prePendingIntent)
+                prePendingIntent.cancel()
+            }
+
+            // Cancel on-time alarm
+            val duePendingIntent = PendingIntent.getBroadcast(
+                context,
+                (goalId + "_due").hashCode(),
+                intent,
+                PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+            )
+            if (duePendingIntent != null) {
+                alarmManager.cancel(duePendingIntent)
+                duePendingIntent.cancel()
+            }
+
+            // Also cancel legacy single alarm
+            val legacyPendingIntent = PendingIntent.getBroadcast(
                 context,
                 goalId.hashCode(),
                 intent,
                 PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
             )
-            if (pendingIntent != null) {
-                alarmManager.cancel(pendingIntent)
-                pendingIntent.cancel()
-                Log.d(TAG, "Cancelled reminder for goal $goalId")
+            if (legacyPendingIntent != null) {
+                alarmManager.cancel(legacyPendingIntent)
+                legacyPendingIntent.cancel()
             }
+
+            // Clear any active notifications for this goal
+            val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+            notificationManager?.cancel((goalId + "_10min").hashCode())
+            notificationManager?.cancel((goalId + "_due").hashCode())
+            notificationManager?.cancel(goalId.hashCode())
+
+            Log.d(TAG, "Cancelled all reminders and notifications for goal $goalId")
         } catch (e: Exception) {
             Log.e(TAG, "Error cancelling reminder for goal $goalId", e)
         }
@@ -184,7 +257,7 @@ object DailyGoalsManager {
         val now = System.currentTimeMillis()
         for (goal in goals) {
             if (!goal.isCompleted && goal.targetTimeMillis > now) {
-                scheduleReminder(context, goal)
+                scheduleReminder(context, goal, allowImmediatePreReminder = false)
             }
         }
     }

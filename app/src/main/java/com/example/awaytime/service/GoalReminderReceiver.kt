@@ -22,6 +22,11 @@ class GoalReminderReceiver : BroadcastReceiver() {
         const val EXTRA_GOAL_ID = "extra_goal_id"
         const val EXTRA_GOAL_TITLE = "extra_goal_title"
         const val EXTRA_TARGET_TIME = "extra_target_time"
+        const val EXTRA_REMINDER_TYPE = "extra_reminder_type"
+
+        const val TYPE_10_MIN_PRIOR = "reminder_10min"
+        const val TYPE_ON_TIME = "reminder_on_time"
+
         const val CHANNEL_ID = "awaytime_goals_reminder_channel"
     }
 
@@ -31,6 +36,7 @@ class GoalReminderReceiver : BroadcastReceiver() {
         val goalId = intent.getStringExtra(EXTRA_GOAL_ID) ?: return
         val goalTitle = intent.getStringExtra(EXTRA_GOAL_TITLE) ?: "Your Daily Goal"
         val targetTime = intent.getLongExtra(EXTRA_TARGET_TIME, 0L)
+        val reminderType = intent.getStringExtra(EXTRA_REMINDER_TYPE) ?: TYPE_10_MIN_PRIOR
 
         // Verify goal is still incomplete
         val goals = DailyGoalsManager.getGoals(context)
@@ -43,7 +49,7 @@ class GoalReminderReceiver : BroadcastReceiver() {
         val targetFormatted = if (targetTime > 0L) {
             SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(targetTime))
         } else {
-            "soon"
+            "scheduled time"
         }
 
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
@@ -55,37 +61,52 @@ class GoalReminderReceiver : BroadcastReceiver() {
             putExtra("open_page", "goals")
         }
 
+        val isDueReminder = (reminderType == TYPE_ON_TIME)
+        val requestCode = if (isDueReminder) {
+            (goalId + "_due").hashCode()
+        } else {
+            (goalId + "_10min").hashCode()
+        }
+
         val pendingIntent = PendingIntent.getActivity(
             context,
-            goalId.hashCode(),
+            requestCode,
             mainIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val diffMinutes = if (targetTime > System.currentTimeMillis()) {
-            ((targetTime - System.currentTimeMillis()) / 60000L).coerceAtLeast(1L)
-        } else {
-            0L
-        }
+        val notificationId = requestCode
 
-        val messageText = if (diffMinutes in 1..10) {
-            "⏰ $diffMinutes minutes left to complete \"$goalTitle\" (Target: $targetFormatted)!"
+        val (titleText, contentText, bigText) = if (isDueReminder) {
+            val title = "Goal Due Now: $goalTitle"
+            val content = "🎯 It's $targetFormatted! Time is up for your goal \"$goalTitle\"."
+            val big = "🎯 It's $targetFormatted!\nTime is up for your goal \"$goalTitle\". Open Awaytime to mark it completed or review your streak!"
+            Triple(title, content, big)
         } else {
-            "⏰ 10 minutes left to complete \"$goalTitle\" (Target: $targetFormatted)!"
+            val diffMinutes = if (targetTime > System.currentTimeMillis()) {
+                ((targetTime - System.currentTimeMillis()) / 60000L).coerceAtLeast(1L)
+            } else {
+                10L
+            }
+            val minText = if (diffMinutes in 1..10) "$diffMinutes minutes" else "10 minutes"
+            val title = "Goal Reminder: 10 min left!"
+            val content = "⏰ $minText left to complete \"$goalTitle\" (Target: $targetFormatted)!"
+            val big = "⏰ $minText left to complete \"$goalTitle\" (Target: $targetFormatted)!\nStay focused and put your phone away to get it done on time."
+            Triple(title, content, big)
         }
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_target)
-            .setContentTitle("Goal Reminder: 10 min left!")
-            .setContentText(messageText)
-            .setStyle(NotificationCompat.BigTextStyle().bigText("$messageText\nStay focused and put your phone away to get it done on time."))
+            .setContentTitle(titleText)
+            .setContentText(contentText)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(bigText))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
             .build()
 
-        notificationManager.notify(goalId.hashCode(), notification)
+        notificationManager.notify(notificationId, notification)
     }
 
     private fun createNotificationChannel(notificationManager: NotificationManager) {
@@ -95,7 +116,7 @@ class GoalReminderReceiver : BroadcastReceiver() {
                 "Daily Goal Reminders",
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
-                description = "Sends 10-minute reminders for scheduled daily goals"
+                description = "Sends 10-minute and on-time deadline reminders for scheduled daily goals"
                 enableVibration(true)
             }
             notificationManager.createNotificationChannel(channel)

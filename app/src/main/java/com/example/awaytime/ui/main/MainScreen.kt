@@ -73,7 +73,7 @@ fun MainScreen(
         WidgetCategoryItem("customize", "Customize Widget", "Accent color, fonts & minimal black/white style", R.drawable.ic_palette, PastelYellow),
         WidgetCategoryItem("distractions", "Distractions", "Notification reading & app distraction blocker", R.drawable.ic_bell, PastelCoral),
         WidgetCategoryItem("streaks", "Focus & Streaks", "Current offline streak & phone-free intervals", R.drawable.ic_hourglass, PastelPink),
-        WidgetCategoryItem("goals", "Daily Goals", "Set daily task deadlines & 10-min reminder alerts", R.drawable.ic_target, PastelMint),
+        WidgetCategoryItem("goals", "Daily Goals", "Set daily task deadlines with pre & on-time reminder alerts", R.drawable.ic_target, PastelMint),
         WidgetCategoryItem("app_timers", "App Timers", "Set specific app daily limits & auto-block access", R.drawable.ic_timer, PastelCoral),
         WidgetCategoryItem("permissions", "Tracking & Permissions", "Usage Access permission for millisecond precision", R.drawable.ic_shield, PastelPurple)
     )
