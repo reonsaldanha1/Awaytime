@@ -405,12 +405,10 @@ fun WeeklyAwayScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    val gamesCategory = displayData.categories.firstOrNull { it.categoryName == "Games" }
-                        ?: displayData.categories.getOrNull(0)
-                    val socialCategory = displayData.categories.firstOrNull { it.categoryName == "Social" }
-                        ?: displayData.categories.getOrNull(1)
+                    val firstCat = displayData.categories.getOrNull(0)
+                    val secondCat = displayData.categories.getOrNull(1)
 
-                    gamesCategory?.let { cat ->
+                    firstCat?.let { cat ->
                         Surface(
                             modifier = Modifier
                                 .weight(1f)
@@ -425,7 +423,7 @@ fun WeeklyAwayScreen(
                                     modifier = Modifier
                                         .size(38.dp)
                                         .clip(CircleShape)
-                                        .background(Color(0xFF1B2A44)),
+                                        .background(Color(cat.colorLong).copy(alpha = 0.2f)),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
@@ -453,7 +451,7 @@ fun WeeklyAwayScreen(
                         }
                     }
 
-                    socialCategory?.let { cat ->
+                    secondCat?.let { cat ->
                         Surface(
                             modifier = Modifier
                                 .weight(1f)
@@ -468,7 +466,7 @@ fun WeeklyAwayScreen(
                                     modifier = Modifier
                                         .size(38.dp)
                                         .clip(CircleShape)
-                                        .background(Color(0xFF133240)),
+                                        .background(Color(cat.colorLong).copy(alpha = 0.2f)),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(

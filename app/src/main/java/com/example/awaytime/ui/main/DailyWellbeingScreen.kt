@@ -5,6 +5,9 @@ import android.content.Intent
 import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -60,10 +63,24 @@ fun DailyWellbeingScreen(
     var timerDialogApp by remember { mutableStateOf<AppUsageInfo?>(null) }
     var showAllApps by remember { mutableStateOf(false) }
 
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                currentData = AwayTimeManager.getDailyWellbeingData(context)
+                timersMap = AppTimerManager.getAllTimers(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
     LaunchedEffect(Unit) {
         currentData = AwayTimeManager.getDailyWellbeingData(context)
         while (true) {
-            kotlinx.coroutines.delay(20000L)
+            kotlinx.coroutines.delay(5000L)
             currentData = AwayTimeManager.getDailyWellbeingData(context)
         }
     }
@@ -303,13 +320,11 @@ fun DailyWellbeingScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    val gamesCategory = displayData.categories.firstOrNull { it.categoryName == "Games" }
-                        ?: displayData.categories.getOrNull(0)
-                    val socialCategory = displayData.categories.firstOrNull { it.categoryName == "Social" }
-                        ?: displayData.categories.getOrNull(1)
+                    val firstCat = displayData.categories.getOrNull(0)
+                    val secondCat = displayData.categories.getOrNull(1)
 
-                    // Games Card
-                    gamesCategory?.let { cat ->
+                    // First Most Used Category Card
+                    firstCat?.let { cat ->
                         Surface(
                             modifier = Modifier
                                 .weight(1f)
@@ -324,7 +339,7 @@ fun DailyWellbeingScreen(
                                     modifier = Modifier
                                         .size(38.dp)
                                         .clip(CircleShape)
-                                        .background(Color(0xFF1B2A44)),
+                                        .background(Color(cat.colorLong).copy(alpha = 0.2f)),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
@@ -352,8 +367,8 @@ fun DailyWellbeingScreen(
                         }
                     }
 
-                    // Social Card
-                    socialCategory?.let { cat ->
+                    // Second Most Used Category Card
+                    secondCat?.let { cat ->
                         Surface(
                             modifier = Modifier
                                 .weight(1f)
@@ -368,7 +383,7 @@ fun DailyWellbeingScreen(
                                     modifier = Modifier
                                         .size(38.dp)
                                         .clip(CircleShape)
-                                        .background(Color(0xFF133240)),
+                                        .background(Color(cat.colorLong).copy(alpha = 0.2f)),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(

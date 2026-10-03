@@ -29,6 +29,88 @@ object AwayTimeManager {
 
     private const val DAY_MILLIS = 24L * 3600 * 1000L
 
+    fun resolveAppCategory(appInfo: android.content.pm.ApplicationInfo, pkg: String, appName: String): String {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            when (appInfo.category) {
+                android.content.pm.ApplicationInfo.CATEGORY_GAME -> return "Games"
+                android.content.pm.ApplicationInfo.CATEGORY_SOCIAL -> return "Social"
+                android.content.pm.ApplicationInfo.CATEGORY_VIDEO -> return "Entertainment"
+                android.content.pm.ApplicationInfo.CATEGORY_AUDIO -> return "Music"
+                android.content.pm.ApplicationInfo.CATEGORY_PRODUCTIVITY -> return "Productivity"
+                android.content.pm.ApplicationInfo.CATEGORY_MAPS -> return "Navigation"
+                android.content.pm.ApplicationInfo.CATEGORY_NEWS -> return "News"
+                android.content.pm.ApplicationInfo.CATEGORY_IMAGE -> return "Photos"
+            }
+        }
+
+        val lowerPkg = pkg.lowercase(Locale.ROOT)
+        val lowerName = appName.lowercase(Locale.ROOT)
+
+        return when {
+            lowerPkg.contains("youtube") || lowerPkg.contains("netflix") || lowerPkg.contains("primevideo") ||
+            lowerPkg.contains("disney") || lowerPkg.contains("hulu") || lowerPkg.contains("hotstar") ||
+            lowerPkg.contains("twitch") || lowerPkg.contains("mxplayer") || lowerPkg.contains("vlc") ||
+            lowerName.contains("tv") || lowerName.contains("movie") || lowerName.contains("cinema") ||
+            lowerName.contains("video") || lowerName.contains("stream") -> "Entertainment"
+
+            lowerPkg.contains("whatsapp") || lowerPkg.contains("telegram") || lowerPkg.contains("instagram") ||
+            lowerPkg.contains("facebook") || lowerPkg.contains("twitter") || lowerPkg.contains("reddit") ||
+            lowerPkg.contains("discord") || lowerPkg.contains("snapchat") || lowerPkg.contains("threads") ||
+            lowerPkg.contains("tiktok") || lowerPkg.contains("messenger") || lowerPkg.contains("signal") ||
+            lowerPkg.contains("dialer") || lowerPkg.contains("phone") || lowerPkg.contains("contacts") ||
+            lowerPkg.contains("sms") || lowerPkg.contains("mms") || lowerName.contains("chat") ||
+            lowerName.contains("social") || lowerName.contains("message") || lowerName.contains("phone") -> "Social"
+
+            lowerPkg.contains("chrome") || lowerPkg.contains("browser") || lowerPkg.contains("firefox") ||
+            lowerPkg.contains("edge") || lowerPkg.contains("opera") || lowerPkg.contains("gmail") ||
+            lowerPkg.contains("email") || lowerPkg.contains("docs") || lowerPkg.contains("sheets") ||
+            lowerPkg.contains("drive") || lowerPkg.contains("notes") || lowerPkg.contains("notion") ||
+            lowerPkg.contains("slack") || lowerPkg.contains("teams") || lowerPkg.contains("office") ||
+            lowerPkg.contains("calendar") || lowerPkg.contains("calculator") || lowerPkg.contains("files") ||
+            lowerName.contains("notes") || lowerName.contains("doc") || lowerName.contains("mail") ||
+            lowerName.contains("browser") || lowerName.contains("work") -> "Productivity"
+
+            lowerPkg.contains("spotify") || lowerPkg.contains("music") || lowerPkg.contains("soundcloud") ||
+            lowerPkg.contains("audio") || lowerPkg.contains("podcast") || lowerName.contains("music") ||
+            lowerName.contains("song") || lowerName.contains("radio") -> "Music"
+
+            lowerPkg.contains("game") || lowerPkg.contains("clash") || lowerPkg.contains("pubg") ||
+            lowerPkg.contains("roblox") || lowerPkg.contains("minecraft") || lowerPkg.contains("chess") ||
+            lowerPkg.contains("candy") || lowerName.contains("game") || lowerName.contains("play") -> "Games"
+
+            lowerPkg.contains("maps") || lowerPkg.contains("waze") || lowerPkg.contains("uber") ||
+            lowerPkg.contains("lyft") || lowerPkg.contains("navigation") || lowerName.contains("map") -> "Navigation"
+
+            lowerPkg.contains("camera") || lowerPkg.contains("gallery") || lowerPkg.contains("photo") ||
+            lowerName.contains("camera") || lowerName.contains("photo") -> "Photos"
+
+            lowerPkg.contains("settings") || lowerPkg.contains("system") || lowerPkg.contains("tool") -> "Tools"
+
+            else -> "Other"
+        }
+    }
+
+    fun getCategoryMetadata(name: String, duration: Long): AppCategoryUsage {
+        val (icon, color) = when (name) {
+            "Entertainment" -> Pair(R.drawable.ic_sparkle, 0xFF388AF6L)
+            "Social" -> Pair(R.drawable.ic_chat, 0xFF22C5E4L)
+            "Productivity" -> Pair(R.drawable.ic_chart, 0xFF4ADE80L)
+            "Games" -> Pair(R.drawable.ic_gamepad, 0xFFA78BFAL)
+            "Music" -> Pair(R.drawable.ic_sparkle_white, 0xFFF472B6L)
+            "Navigation" -> Pair(R.drawable.ic_target, 0xFFFFB74DL)
+            "Photos" -> Pair(R.drawable.ic_palette, 0xFFFACC15L)
+            "Tools" -> Pair(R.drawable.ic_settings, 0xFF9AA0B2L)
+            else -> Pair(R.drawable.ic_widgets_grid, 0xFF2DD4BFL)
+        }
+        return AppCategoryUsage(
+            categoryName = name,
+            usageMillis = duration,
+            formattedDuration = formatDuration(duration),
+            iconRes = icon,
+            colorLong = color
+        )
+    }
+
     fun hasUsageStatsPermission(context: Context): Boolean {
         val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as? AppOpsManager ?: return false
         val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -460,32 +542,7 @@ object AwayTimeManager {
                 // Filter out noise / micro-glances under 3 seconds
                 if (duration < 3000L) continue
 
-                var category = "Other"
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    when (appInfo.category) {
-                        android.content.pm.ApplicationInfo.CATEGORY_GAME -> category = "Games"
-                        android.content.pm.ApplicationInfo.CATEGORY_SOCIAL -> category = "Social"
-                    }
-                }
-
-                val lowerPkg = pkg.lowercase(Locale.ROOT)
-                val lowerName = appName.lowercase(Locale.ROOT)
-                if (category == "Other") {
-                    if (lowerPkg.contains("game") || lowerPkg.contains("clash") || lowerPkg.contains("pubg") || lowerName.contains("game")) {
-                        category = "Games"
-                    } else if (lowerPkg.contains("instagram") || lowerPkg.contains("facebook") || lowerPkg.contains("telegram") ||
-                        lowerPkg.contains("whatsapp") || lowerPkg.contains("twitter") || lowerPkg.contains("reddit") ||
-                        lowerPkg.contains("discord") || lowerPkg.contains("social") || lowerPkg.contains("chat")
-                    ) {
-                        category = "Social"
-                    }
-                }
-
-                if (category == "Games") {
-                    gamesTotalMillis += duration
-                } else if (category == "Social") {
-                    socialTotalMillis += duration
-                }
+                val category = resolveAppCategory(appInfo, pkg, appName)
 
                 totalForegroundMillis += duration
                 validApps.add(
@@ -521,10 +578,30 @@ object AwayTimeManager {
 
             val topAppsSum = allApps.sumOf { it.usageMillis }
 
-            val categories = listOf(
-                AppCategoryUsage("Games", gamesTotalMillis, formatDuration(gamesTotalMillis), R.drawable.ic_gamepad, 0xFF388AF6L),
-                AppCategoryUsage("Social", socialTotalMillis, formatDuration(socialTotalMillis), R.drawable.ic_chat, 0xFF22C5E4L)
-            )
+            // Dynamically aggregate categories of the current day
+            val categoryTotals = mutableMapOf<String, Long>()
+            for (app in allApps) {
+                categoryTotals[app.categoryName] = (categoryTotals[app.categoryName] ?: 0L) + app.usageMillis
+            }
+
+            val activeCategories = categoryTotals.entries
+                .filter { it.key != "Other" && it.value > 0L }
+                .sortedByDescending { it.value }
+                .map { (catName, dur) -> getCategoryMetadata(catName, dur) }
+                .toMutableList()
+
+            if (categoryTotals.containsKey("Other") && (categoryTotals["Other"] ?: 0L) > 0L) {
+                activeCategories.add(getCategoryMetadata("Other", categoryTotals["Other"] ?: 0L))
+            }
+
+            val defaultOrder = listOf("Social", "Entertainment", "Productivity", "Games")
+            for (name in defaultOrder) {
+                if (activeCategories.none { it.categoryName == name }) {
+                    activeCategories.add(getCategoryMetadata(name, 0L))
+                }
+                if (activeCategories.size >= 4) break
+            }
+            val categories = activeCategories
 
             val todayStats = getTodayAwayStats(context)
             val finalTotalScreenMillis = maxOf(totalForegroundMillis, todayStats.totalScreenMillis).coerceIn(0L, elapsedToday)
@@ -757,29 +834,7 @@ object AwayTimeManager {
 
                 if (duration < 5000L) continue
 
-                var category = "Other"
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    when (appInfo.category) {
-                        android.content.pm.ApplicationInfo.CATEGORY_GAME -> category = "Games"
-                        android.content.pm.ApplicationInfo.CATEGORY_SOCIAL -> category = "Social"
-                    }
-                }
-
-                val lowerPkg = pkg.lowercase(Locale.ROOT)
-                val lowerName = appName.lowercase(Locale.ROOT)
-                if (category == "Other") {
-                    if (lowerPkg.contains("game") || lowerPkg.contains("clash") || lowerPkg.contains("pubg") || lowerName.contains("game")) {
-                        category = "Games"
-                    } else if (lowerPkg.contains("instagram") || lowerPkg.contains("facebook") || lowerPkg.contains("telegram") ||
-                        lowerPkg.contains("whatsapp") || lowerPkg.contains("twitter") || lowerPkg.contains("reddit") ||
-                        lowerPkg.contains("discord") || lowerPkg.contains("social") || lowerPkg.contains("chat")
-                    ) {
-                        category = "Social"
-                    }
-                }
-
-                if (category == "Games") weekGamesMillis += duration
-                if (category == "Social") weekSocialMillis += duration
+                val category = resolveAppCategory(appInfo, pkg, appName)
 
                 validApps.add(
                     AppUsageInfo(
@@ -815,10 +870,30 @@ object AwayTimeManager {
             val topAppsSum = allWeekApps.sumOf { it.usageMillis }
             val otherMillis = (totalWeekForegroundMillis - topAppsSum).coerceAtLeast(0L)
 
-            val categories = listOf(
-                AppCategoryUsage("Games", weekGamesMillis, formatDuration(weekGamesMillis), R.drawable.ic_gamepad, 0xFF388AF6L),
-                AppCategoryUsage("Social", weekSocialMillis, formatDuration(weekSocialMillis), R.drawable.ic_chat, 0xFF22C5E4L)
-            )
+            // Dynamically aggregate categories for the week
+            val weekCategoryTotals = mutableMapOf<String, Long>()
+            for (app in allWeekApps) {
+                weekCategoryTotals[app.categoryName] = (weekCategoryTotals[app.categoryName] ?: 0L) + app.usageMillis
+            }
+
+            val activeWeekCategories = weekCategoryTotals.entries
+                .filter { it.key != "Other" && it.value > 0L }
+                .sortedByDescending { it.value }
+                .map { (catName, dur) -> getCategoryMetadata(catName, dur) }
+                .toMutableList()
+
+            if (weekCategoryTotals.containsKey("Other") && (weekCategoryTotals["Other"] ?: 0L) > 0L) {
+                activeWeekCategories.add(getCategoryMetadata("Other", weekCategoryTotals["Other"] ?: 0L))
+            }
+
+            val defaultWeekOrder = listOf("Social", "Entertainment", "Productivity", "Games")
+            for (name in defaultWeekOrder) {
+                if (activeWeekCategories.none { it.categoryName == name }) {
+                    activeWeekCategories.add(getCategoryMetadata(name, 0L))
+                }
+                if (activeWeekCategories.size >= 4) break
+            }
+            val categories = activeWeekCategories
 
             val avgDaily = totalWeekForegroundMillis / 7
 
