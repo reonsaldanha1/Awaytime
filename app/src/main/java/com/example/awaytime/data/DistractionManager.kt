@@ -38,9 +38,27 @@ data class DistractionItem(
 object DistractionManager {
     private const val PREFS_NAME = "awaytime_distraction_prefs"
     private const val KEY_BLOCKED_PACKAGES = "blocked_packages"
+    private const val KEY_NOTIFICATION_BLOCKER_ENABLED = "notification_blocker_enabled"
+    private const val KEY_BLOCKER_MODE = "notification_blocker_mode" // "selected" or "all"
 
     // In-memory cache of recent notifications
     private val recentNotifications = mutableListOf<DistractionItem>()
+
+    fun isNotificationBlockerEnabled(context: Context): Boolean {
+        return getPrefs(context).getBoolean(KEY_NOTIFICATION_BLOCKER_ENABLED, true)
+    }
+
+    fun setNotificationBlockerEnabled(context: Context, enabled: Boolean) {
+        getPrefs(context).edit().putBoolean(KEY_NOTIFICATION_BLOCKER_ENABLED, enabled).apply()
+    }
+
+    fun getNotificationBlockerMode(context: Context): String {
+        return getPrefs(context).getString(KEY_BLOCKER_MODE, "selected") ?: "selected"
+    }
+
+    fun setNotificationBlockerMode(context: Context, mode: String) {
+        getPrefs(context).edit().putString(KEY_BLOCKER_MODE, mode).apply()
+    }
 
     fun hasNotificationListenerPermission(context: Context): Boolean {
         return try {
@@ -88,6 +106,28 @@ object DistractionManager {
         if (blocked) {
             DistractionNotificationListenerService.dismissNotificationsForPackage(packageName)
         }
+    }
+
+    fun getAllInstalledApps(context: Context): List<Pair<String, String>> {
+        val pm = context.packageManager
+        val intent = Intent(Intent.ACTION_MAIN, null).apply {
+            addCategory(Intent.CATEGORY_LAUNCHER)
+        }
+        val resolveInfos = pm.queryIntentActivities(intent, 0)
+        val list = mutableListOf<Pair<String, String>>()
+        val seen = mutableSetOf<String>()
+        for (info in resolveInfos) {
+            val pkg = info.activityInfo?.packageName ?: continue
+            if (pkg == context.packageName || pkg == "com.android.systemui") continue
+            if (!seen.add(pkg)) continue
+            val label = try {
+                info.loadLabel(pm).toString()
+            } catch (e: Exception) {
+                pkg
+            }
+            list.add(pkg to label)
+        }
+        return list.sortedBy { it.second.lowercase() }
     }
 
     fun addNotification(context: Context, item: DistractionItem) {

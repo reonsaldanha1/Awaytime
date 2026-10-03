@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.sp
 import com.example.awaytime.R
 import com.example.awaytime.data.DistractionItem
 import com.example.awaytime.data.DistractionManager
+import com.example.awaytime.theme.PastelCoral
 
 private val DarkCardBg = Color(0xFF171A21)
 private val DarkCardBorder = Color(0xFF232733)
@@ -34,16 +35,22 @@ private val TextMutedGray = Color(0xFF9AA0B2)
 @Composable
 fun DistractionsScreen(
     onDismiss: () -> Unit,
+    onNavigateToAppTimers: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     var hasPermission by remember { mutableStateOf(DistractionManager.hasNotificationListenerPermission(context)) }
     var distractions by remember { mutableStateOf(DistractionManager.getDistractions(context)) }
     var selectedTab by remember { mutableStateOf("notifications") } // "notifications" or "blocked"
+    var isBlockerEnabled by remember { mutableStateOf(DistractionManager.isNotificationBlockerEnabled(context)) }
+    var blockerMode by remember { mutableStateOf(DistractionManager.getNotificationBlockerMode(context)) }
+    var showAddAppBlockDialog by remember { mutableStateOf(false) }
 
     fun refresh() {
         hasPermission = DistractionManager.hasNotificationListenerPermission(context)
         distractions = DistractionManager.getDistractions(context)
+        isBlockerEnabled = DistractionManager.isNotificationBlockerEnabled(context)
+        blockerMode = DistractionManager.getNotificationBlockerMode(context)
     }
 
     DisposableEffect(context) {
@@ -142,7 +149,7 @@ fun DistractionsScreen(
                                 )
                                 Spacer(modifier = Modifier.height(6.dp))
                                 Text(
-                                    text = "To track distracting notifications and block unwanted alerts from specific apps, grant Notification Access.",
+                                    text = "To track distracting notifications and actively suppress unwanted alerts, grant Notification Access.",
                                     color = Color(0xFFD7CCC8),
                                     fontSize = 13.sp,
                                     lineHeight = 18.sp
@@ -160,63 +167,213 @@ fun DistractionsScreen(
                     }
                 }
 
-                // Summary Stats Card
+                // Master Notification Blocker Card
                 item {
-                    val blockedCount = DistractionManager.getBlockedPackages(context).size
+                    val blockedPackages = DistractionManager.getBlockedPackages(context)
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(24.dp))
-                            .border(1.dp, DarkCardBorder, RoundedCornerShape(24.dp)),
+                            .border(1.dp, if (isBlockerEnabled) Color(0xFF324738) else DarkCardBorder, RoundedCornerShape(24.dp)),
                         color = DarkCardBg
                     ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(20.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column {
-                                Text(
-                                    text = "Total Distractions",
-                                    color = TextMutedGray,
-                                    fontSize = 13.5.sp
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = "${distractions.size}",
-                                    color = Color.White,
-                                    fontSize = 28.sp,
-                                    fontWeight = FontWeight.Bold
+                        Column(modifier = Modifier.padding(20.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(38.dp)
+                                            .clip(CircleShape)
+                                            .background(if (isBlockerEnabled) Color(0xFF1B3828) else Color(0xFF232733)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.ic_bell_off),
+                                            contentDescription = null,
+                                            tint = if (isBlockerEnabled) Color(0xFF69E094) else TextMutedGray,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Column {
+                                        Text(
+                                            text = "Notification Blocker",
+                                            color = Color.White,
+                                            fontSize = 17.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Text(
+                                            text = if (isBlockerEnabled) "Active • Suppressing alerts" else "Paused",
+                                            color = if (isBlockerEnabled) Color(0xFF69E094) else TextMutedGray,
+                                            fontSize = 12.5.sp
+                                        )
+                                    }
+                                }
+
+                                Switch(
+                                    checked = isBlockerEnabled,
+                                    onCheckedChange = {
+                                        isBlockerEnabled = it
+                                        DistractionManager.setNotificationBlockerEnabled(context, it)
+                                    },
+                                    colors = SwitchDefaults.colors(
+                                        checkedThumbColor = Color.White,
+                                        checkedTrackColor = Color(0xFF69E094)
+                                    )
                                 )
                             }
 
-                            Column(horizontalAlignment = Alignment.End) {
-                                Text(
-                                    text = "Blocked Apps",
-                                    color = TextMutedGray,
-                                    fontSize = 13.5.sp
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
+                            Spacer(modifier = Modifier.height(14.dp))
+
+                            Text(
+                                text = "Silently dismiss incoming notifications from selected or distracting apps to keep your attention on what matters.",
+                                color = TextMutedGray,
+                                fontSize = 13.sp,
+                                lineHeight = 18.sp
+                            )
+
+                            Spacer(modifier = Modifier.height(14.dp))
+
+                            // Mode Selector Chips: Block Selected vs Block All
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
                                 Surface(
-                                    color = if (blockedCount > 0) Color(0xFF381C16) else Color(0xFF1E2433),
-                                    shape = RoundedCornerShape(10.dp)
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .clickable {
+                                            blockerMode = "selected"
+                                            DistractionManager.setNotificationBlockerMode(context, "selected")
+                                        },
+                                    color = if (blockerMode == "selected") Color(0xFF233229) else Color(0xFF141720),
+                                    border = if (blockerMode == "selected") androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF69E094)) else null,
+                                    shape = RoundedCornerShape(12.dp)
                                 ) {
-                                    Text(
-                                        text = "$blockedCount blocked",
-                                        color = if (blockedCount > 0) Color(0xFFFF8A65) else Color(0xFF38BDF8),
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
-                                    )
+                                    Box(modifier = Modifier.padding(vertical = 9.dp), contentAlignment = Alignment.Center) {
+                                        Text(
+                                            text = "Block Selected (${blockedPackages.size})",
+                                            color = if (blockerMode == "selected") Color.White else TextMutedGray,
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                    }
                                 }
+
+                                Surface(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .clickable {
+                                            blockerMode = "all"
+                                            DistractionManager.setNotificationBlockerMode(context, "all")
+                                        },
+                                    color = if (blockerMode == "all") Color(0xFF3A201A) else Color(0xFF141720),
+                                    border = if (blockerMode == "all") androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFF8A65)) else null,
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Box(modifier = Modifier.padding(vertical = 9.dp), contentAlignment = Alignment.Center) {
+                                        Text(
+                                            text = "Block All Distractions",
+                                            color = if (blockerMode == "all") Color.White else TextMutedGray,
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            // Add App to Blocklist Button
+                            OutlinedButton(
+                                onClick = { showAddAppBlockDialog = true },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2A364A))
+                            ) {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_bell_off),
+                                    contentDescription = null,
+                                    tint = Color(0xFF64B5F6),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("+ Add App to Blocklist", color = Color(0xFF64B5F6), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                             }
                         }
                     }
                 }
 
-                // Tabs: All Notifications / Blocked Apps
+                // App Timers & Limits Navigation Banner
+                item {
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(22.dp))
+                            .border(1.dp, Color(0xFF382329), RoundedCornerShape(22.dp))
+                            .clickable { onNavigateToAppTimers() },
+                        color = Color(0xFF1E1418)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(18.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(42.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFF351921)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_timer),
+                                    contentDescription = null,
+                                    tint = PastelCoral,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.width(14.dp))
+
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "App Screen Time Timers",
+                                    color = Color.White,
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = "Set daily limits. When reached, Awaytime blocks the app.",
+                                    color = Color(0xFFD1B4BC),
+                                    fontSize = 12.sp,
+                                    lineHeight = 16.sp
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.width(8.dp))
+
+                            Button(
+                                onClick = onNavigateToAppTimers,
+                                colors = ButtonDefaults.buttonColors(containerColor = PastelCoral),
+                                shape = RoundedCornerShape(10.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Text("Configure →", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+
+                // Filter Tabs: Recent Alerts / Blocked Apps
                 item {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -255,7 +412,6 @@ fun DistractionsScreen(
                             Column(
                                 modifier = Modifier.padding(18.dp)
                             ) {
-                                // App Name + Timestamp + Block Status Badge
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     verticalAlignment = Alignment.CenterVertically
@@ -298,55 +454,45 @@ fun DistractionsScreen(
 
                                 Spacer(modifier = Modifier.height(10.dp))
 
-                                // Notification Content
                                 Text(
                                     text = item.title,
-                                    color = Color(0xFFE5E7EB),
-                                    fontSize = 14.5.sp,
+                                    color = Color.White,
+                                    fontSize = 14.sp,
                                     fontWeight = FontWeight.Medium
                                 )
+
                                 if (item.text.isNotBlank()) {
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Text(
                                         text = item.text,
                                         color = TextMutedGray,
                                         fontSize = 13.sp,
-                                        lineHeight = 17.sp
+                                        lineHeight = 18.sp,
+                                        maxLines = 2
                                     )
                                 }
 
                                 Spacer(modifier = Modifier.height(14.dp))
 
-                                // Block / Unblock Action Button for this specific app
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     if (isBlocked) {
                                         Surface(
-                                            color = Color(0xFF381410),
+                                            color = Color(0xFF381C16),
                                             shape = RoundedCornerShape(8.dp)
                                         ) {
-                                            Row(
-                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Icon(
-                                                    painter = painterResource(id = R.drawable.ic_bell_off),
-                                                    contentDescription = null,
-                                                    tint = Color(0xFFFF5252),
-                                                    modifier = Modifier.size(13.dp)
-                                                )
-                                                Spacer(modifier = Modifier.width(5.dp))
-                                                Text(
-                                                    text = "Muted",
-                                                    color = Color(0xFFFF5252),
-                                                    fontSize = 11.5.sp,
-                                                    fontWeight = FontWeight.SemiBold
-                                                )
-                                            }
+                                            Text(
+                                                text = "Blocked",
+                                                color = Color(0xFFFF8A65),
+                                                fontSize = 11.5.sp,
+                                                fontWeight = FontWeight.Medium,
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                            )
                                         }
+
+                                        Spacer(modifier = Modifier.weight(1f))
 
                                         TextButton(
                                             onClick = {
@@ -393,23 +539,55 @@ fun DistractionsScreen(
                         }
                     }
                 } else {
-                    // Blocked Apps list
+                    // Blocked Apps Tab
                     val blockedPackages = DistractionManager.getBlockedPackages(context)
-                    val allKnownPackages = distractions.map { it.packageName to it.appName }.distinctBy { it.first }
+                    val allApps = DistractionManager.getAllInstalledApps(context)
+                    val blockedList = allApps.filter { blockedPackages.contains(it.first) }
 
-                    if (allKnownPackages.isEmpty()) {
+                    if (blockedList.isEmpty()) {
                         item {
-                            Text("No apps detected yet", color = TextMutedGray, fontSize = 14.sp)
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(20.dp))
+                                    .border(1.dp, DarkCardBorder, RoundedCornerShape(20.dp)),
+                                color = DarkCardBg
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(32.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.ic_bell_off),
+                                        contentDescription = null,
+                                        tint = Color(0xFF5A6678),
+                                        modifier = Modifier.size(40.dp)
+                                    )
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Text(
+                                        text = "No apps currently blocked",
+                                        color = Color.White,
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = "Add apps above to suppress notifications.",
+                                        color = TextMutedGray,
+                                        fontSize = 13.sp
+                                    )
+                                }
+                            }
                         }
                     } else {
-                        items(allKnownPackages) { (pkg, name) ->
-                            val isBlocked = blockedPackages.contains(pkg)
-
+                        items(blockedList, key = { it.first }) { (pkg, name) ->
                             Surface(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(18.dp))
-                                    .border(1.dp, DarkCardBorder, RoundedCornerShape(18.dp)),
+                                    .border(1.dp, Color(0xFF4A201A), RoundedCornerShape(18.dp)),
                                 color = DarkCardBg
                             ) {
                                 Row(
@@ -424,17 +602,17 @@ fun DistractionsScreen(
                                         Text(text = pkg, color = TextMutedGray, fontSize = 11.5.sp)
                                     }
 
-                                    Switch(
-                                        checked = isBlocked,
-                                        onCheckedChange = { blocked ->
-                                            DistractionManager.setPackageBlocked(context, pkg, blocked)
+                                    Button(
+                                        onClick = {
+                                            DistractionManager.setPackageBlocked(context, pkg, false)
                                             refresh()
                                         },
-                                        colors = SwitchDefaults.colors(
-                                            checkedThumbColor = Color.White,
-                                            checkedTrackColor = Color(0xFFFF5252)
-                                        )
-                                    )
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF28364A)),
+                                        shape = RoundedCornerShape(10.dp),
+                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                                    ) {
+                                        Text("Unblock", color = Color(0xFF90CAF9), fontSize = 12.sp)
+                                    }
                                 }
                             }
                         }
@@ -443,6 +621,110 @@ fun DistractionsScreen(
             }
         }
     }
+
+    if (showAddAppBlockDialog) {
+        AddAppToBlocklistDialog(
+            onDismiss = { showAddAppBlockDialog = false },
+            onAddApp = { pkg ->
+                DistractionManager.setPackageBlocked(context, pkg, true)
+                refresh()
+                showAddAppBlockDialog = false
+            }
+        )
+    }
+}
+
+@Composable
+fun AddAppToBlocklistDialog(
+    onDismiss: () -> Unit,
+    onAddApp: (packageName: String) -> Unit
+) {
+    val context = LocalContext.current
+    val allApps = remember { DistractionManager.getAllInstalledApps(context) }
+    var searchQuery by remember { mutableStateOf("") }
+    val blocked = remember { DistractionManager.getBlockedPackages(context) }
+
+    val filtered = allApps.filter { (pkg, name) ->
+        !blocked.contains(pkg) && (searchQuery.isBlank() || name.contains(searchQuery, ignoreCase = true))
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Color(0xFF151821),
+        shape = RoundedCornerShape(24.dp),
+        title = {
+            Text(
+                text = "Block App Notifications",
+                color = Color.White,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    placeholder = { Text("Search apps...", color = Color(0xFF5A6275)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedBorderColor = PastelCoral,
+                        unfocusedBorderColor = DarkCardBorder,
+                        focusedContainerColor = Color(0xFF0F1218),
+                        unfocusedContainerColor = Color(0xFF0F1218)
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    singleLine = true
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(300.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    items(filtered, key = { it.first }) { (pkg, name) ->
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .clickable { onAddApp(pkg) },
+                            color = Color(0xFF1B2230),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = name,
+                                    color = Color.White,
+                                    fontSize = 14.sp,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Text(
+                                    text = "Block",
+                                    color = Color(0xFFFF8A65),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close", color = TextMutedGray)
+            }
+        }
+    )
 }
 
 @Composable

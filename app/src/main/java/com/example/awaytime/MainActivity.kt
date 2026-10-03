@@ -8,15 +8,26 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
+import com.example.awaytime.data.AppTimerManager
 import com.example.awaytime.theme.AwaytimeTheme
 
 class MainActivity : ComponentActivity() {
-  override fun onCreate(savedInstanceState: Bundle?) {
-    super.onCreate(savedInstanceState)
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
 
-    enableEdgeToEdge()
-    setContent {
-      AwaytimeTheme { Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) { MainNavigation() } }
+        val openPage = intent?.getStringExtra("open_page")
+        AppTimerManager.startOrUpdateMonitoring(this)
+
+        enableEdgeToEdge()
+        setContent {
+            AwaytimeTheme {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    MainNavigation(initialPage = openPage)
+                }
+            }
+        }
     }
-  }
 }

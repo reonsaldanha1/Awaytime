@@ -6,6 +6,9 @@ import androidx.compose.ui.Modifier
 import com.example.awaytime.ui.main.MainScreen
 
 @Composable
-fun MainNavigation() {
-    MainScreen(modifier = Modifier.safeDrawingPadding())
+fun MainNavigation(initialPage: String? = null) {
+    MainScreen(
+        initialPage = initialPage,
+        modifier = Modifier.safeDrawingPadding()
+    )
 }

@@ -45,6 +45,8 @@ import com.example.awaytime.model.WidgetAccent
 import com.example.awaytime.model.WidgetTheme
 import com.example.awaytime.theme.*
 
+import com.example.awaytime.data.AppTimerManager
+
 data class WidgetCategoryItem(
     val id: String,
     val title: String,
@@ -56,6 +58,7 @@ data class WidgetCategoryItem(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
+    initialPage: String? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -63,7 +66,24 @@ fun MainScreen(
     val prefs = remember { WidgetPreferences(context) }
 
     var currentTab by remember { mutableStateOf("Widget") }
-    var selectedItem by remember { mutableStateOf<WidgetCategoryItem?>(null) }
+
+    val items = listOf(
+        WidgetCategoryItem("daily", "Dailyaway", "Track your time away from your phone", R.drawable.ic_timer, PastelBlue),
+        WidgetCategoryItem("weekly", "Weeklyaway", "Weekly away time & apps used over the week", R.drawable.ic_chart, PastelPeach),
+        WidgetCategoryItem("customize", "Customize Widget", "Accent color, fonts & minimal black/white style", R.drawable.ic_palette, PastelYellow),
+        WidgetCategoryItem("distractions", "Distractions", "Notification reading & app distraction blocker", R.drawable.ic_bell, PastelCoral),
+        WidgetCategoryItem("streaks", "Focus & Streaks", "Current offline streak & phone-free intervals", R.drawable.ic_hourglass, PastelPink),
+        WidgetCategoryItem("goals", "Daily Goals", "Set daily task deadlines & 10-min reminder alerts", R.drawable.ic_target, PastelMint),
+        WidgetCategoryItem("app_timers", "App Timers", "Set specific app daily limits & auto-block access", R.drawable.ic_timer, PastelCoral),
+        WidgetCategoryItem("timeline", "Timeline & Intervals", "Hourly screen-off distribution throughout the day", R.drawable.ic_chart, PastelTeal),
+        WidgetCategoryItem("permissions", "Tracking & Permissions", "Usage Access permission for millisecond precision", R.drawable.ic_shield, PastelPurple)
+    )
+
+    var selectedItem by remember {
+        mutableStateOf<WidgetCategoryItem?>(
+            if (!initialPage.isNullOrBlank()) items.firstOrNull { it.id == initialPage } else null
+        )
+    }
 
     var hasPermission by remember { mutableStateOf(AwayTimeManager.hasUsageStatsPermission(context)) }
     var showPermissionDialog by remember { mutableStateOf(!hasPermission) }
@@ -116,6 +136,7 @@ fun MainScreen(
                 weeklyStats = AwayTimeManager.getWeeklyAwayStats(context)
                 dailyWellbeingData = AwayTimeManager.getDailyWellbeingData(context)
                 weeklyAwayData = AwayTimeManager.getWeeklyAwayData(context)
+                AppTimerManager.startOrUpdateMonitoring(context)
                 triggerWidgetUpdate(context)
             }
         }
@@ -124,17 +145,6 @@ fun MainScreen(
             lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
-
-    val items = listOf(
-        WidgetCategoryItem("daily", "Dailyaway", "Track your time away from your phone", R.drawable.ic_timer, PastelBlue),
-        WidgetCategoryItem("weekly", "Weeklyaway", "Weekly away time & apps used over the week", R.drawable.ic_chart, PastelPeach),
-        WidgetCategoryItem("customize", "Customize Widget", "Accent color, fonts & minimal black/white style", R.drawable.ic_palette, PastelYellow),
-        WidgetCategoryItem("distractions", "Distractions", "Notification reading & app distraction blocker", R.drawable.ic_bell, PastelCoral),
-        WidgetCategoryItem("streaks", "Focus & Streaks", "Current offline streak & phone-free intervals", R.drawable.ic_hourglass, PastelPink),
-        WidgetCategoryItem("goals", "Daily Goals", "Set target hours and digital detox milestones", R.drawable.ic_target, PastelMint),
-        WidgetCategoryItem("timeline", "Timeline & Intervals", "Hourly screen-off distribution throughout the day", R.drawable.ic_chart, PastelTeal),
-        WidgetCategoryItem("permissions", "Tracking & Permissions", "Usage Access permission for millisecond precision", R.drawable.ic_shield, PastelPurple)
-    )
 
     val homeScale by animateFloatAsState(
         targetValue = if (selectedItem != null) 0.94f else 1f,
@@ -333,13 +343,22 @@ fun MainScreen(
                     onDismiss = { selectedItem = null }
                 )
                 "distractions" -> DistractionsScreen(
-                    onDismiss = { selectedItem = null }
+                    onDismiss = { selectedItem = null },
+                    onNavigateToAppTimers = {
+                        selectedItem = items.firstOrNull { it.id == "app_timers" }
+                    }
                 )
                 "permissions" -> TrackingPermissionsScreen(
                     onDismiss = { selectedItem = null }
                 )
                 "streaks", "focus" -> FocusStreaksScreen(
                     todayStats = todayStats,
+                    onDismiss = { selectedItem = null }
+                )
+                "goals" -> DailyGoalsScreen(
+                    onDismiss = { selectedItem = null }
+                )
+                "app_timers" -> AppTimersScreen(
                     onDismiss = { selectedItem = null }
                 )
                 else -> selectedItem?.let { item ->

@@ -77,7 +77,11 @@ class DistractionNotificationListenerService : NotificationListenerService() {
             // Skip empty/ongoing system foreground notifications if not useful
             if (title.isBlank() && text.isBlank()) return
 
-            val isBlocked = DistractionManager.isPackageBlocked(this, pkg)
+            val blockerEnabled = DistractionManager.isNotificationBlockerEnabled(this)
+            val isPackageBlocked = DistractionManager.isPackageBlocked(this, pkg)
+            val mode = DistractionManager.getNotificationBlockerMode(this)
+            val isEssential = pkg == "com.android.dialer" || pkg == "com.google.android.dialer" || pkg == "com.android.phone" || pkg == "com.android.server.telecom"
+            val isBlocked = blockerEnabled && (isPackageBlocked || (mode == "all" && !isEssential))
 
             // If the user blocked notifications for this app, cancel/dismiss it!
             if (isBlocked) {

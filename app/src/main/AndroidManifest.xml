@@ -12,6 +12,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <uses-permission
         android:name="android.permission.QUERY_ALL_PACKAGES"
         tools:ignore="QueryAllPackagesPermission" />
@@ -93,9 +95,27 @@
             </intent-filter>
         </service>
 
+        <!-- Goal Reminder Alarm Receiver -->
+        <receiver
+            android:name=".service.GoalReminderReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.example.awaytime.ACTION_GOAL_REMINDER" />
+            </intent-filter>
+        </receiver>
+
         <!-- Focus Block Restriction Page (No buttons) -->
         <activity
             android:name=".ui.focus.FocusBlockActivity"
+            android:theme="@style/Theme.Awaytime"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:launchMode="singleInstance"
+            android:noHistory="true" />
+
+        <!-- Daily App Limit Block Screen -->
+        <activity
+            android:name=".ui.focus.AppLimitBlockActivity"
             android:theme="@style/Theme.Awaytime"
             android:exported="false"
             android:excludeFromRecents="true"
