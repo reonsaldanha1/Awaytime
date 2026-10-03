@@ -75,7 +75,6 @@ fun MainScreen(
         WidgetCategoryItem("streaks", "Focus & Streaks", "Current offline streak & phone-free intervals", R.drawable.ic_hourglass, PastelPink),
         WidgetCategoryItem("goals", "Daily Goals", "Set daily task deadlines & 10-min reminder alerts", R.drawable.ic_target, PastelMint),
         WidgetCategoryItem("app_timers", "App Timers", "Set specific app daily limits & auto-block access", R.drawable.ic_timer, PastelCoral),
-        WidgetCategoryItem("timeline", "Timeline & Intervals", "Hourly screen-off distribution throughout the day", R.drawable.ic_chart, PastelTeal),
         WidgetCategoryItem("permissions", "Tracking & Permissions", "Usage Access permission for millisecond precision", R.drawable.ic_shield, PastelPurple)
     )
 
