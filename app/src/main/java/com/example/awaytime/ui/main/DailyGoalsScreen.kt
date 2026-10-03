@@ -34,9 +34,9 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
-private val DarkCardBg = Color(0xFF171A21)
-private val DarkCardBorder = Color(0xFF232733)
-private val TextMutedGray = Color(0xFF9AA0B2)
+private val DarkCardBg = Color(0xFF0C0D12)
+private val DarkCardBorder = Color(0xFF1C1F28)
+private val TextMutedGray = Color(0xFFA2A9B8)
 
 @Composable
 fun DailyGoalsScreen(
@@ -69,7 +69,7 @@ fun DailyGoalsScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Color(0xFF0C0D11))
+            .background(Color(0xFF000000))
     ) {
         Column(
             modifier = Modifier.fillMaxSize()
@@ -541,7 +541,7 @@ fun AddGoalDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = Color(0xFF151821),
+        containerColor = Color(0xFF0C0D12),
         shape = RoundedCornerShape(24.dp),
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -582,8 +582,8 @@ fun AddGoalDialog(
                         unfocusedTextColor = Color.White,
                         focusedBorderColor = PastelMint,
                         unfocusedBorderColor = DarkCardBorder,
-                        focusedContainerColor = Color(0xFF0F1218),
-                        unfocusedContainerColor = Color(0xFF0F1218)
+                        focusedContainerColor = Color(0xFF060709),
+                        unfocusedContainerColor = Color(0xFF060709)
                     ),
                     shape = RoundedCornerShape(14.dp),
                     singleLine = true

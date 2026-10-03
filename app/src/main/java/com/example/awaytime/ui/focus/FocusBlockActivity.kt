@@ -107,7 +107,7 @@ fun FocusBlockScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF0A0C10))
+            .background(Color(0xFF000000))
             .padding(horizontal = 28.dp),
         contentAlignment = Alignment.Center
     ) {

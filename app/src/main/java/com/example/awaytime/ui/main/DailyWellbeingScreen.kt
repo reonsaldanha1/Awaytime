@@ -45,9 +45,9 @@ import com.example.awaytime.data.AwayTimeManager
 import com.example.awaytime.model.AppUsageInfo
 import com.example.awaytime.model.DailyWellbeingData
 
-private val DarkCardBg = Color(0xFF171A21)
-private val DarkCardBorder = Color(0xFF232733)
-private val TextMutedGray = Color(0xFF9AA0B2)
+private val DarkCardBg = Color(0xFF0C0D12)
+private val DarkCardBorder = Color(0xFF1C1F28)
+private val TextMutedGray = Color(0xFFA2A9B8)
 
 @Composable
 fun DailyWellbeingScreen(
@@ -94,7 +94,7 @@ fun DailyWellbeingScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Color(0xFF0C0D11))
+            .background(Color(0xFF000000))
     ) {
         Column(
             modifier = Modifier.fillMaxSize()
@@ -902,7 +902,7 @@ fun AppTimerDialog(
                 }
             }
         },
-        containerColor = Color(0xFF171A21),
+        containerColor = Color(0xFF0C0D12),
         shape = RoundedCornerShape(20.dp)
     )
 }

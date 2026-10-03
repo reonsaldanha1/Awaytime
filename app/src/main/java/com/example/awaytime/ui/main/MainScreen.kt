@@ -265,7 +265,7 @@ fun MainScreen(
                         Text("Not Now", color = TextMuted)
                     }
                 },
-                containerColor = Color(0xFF181A24),
+                containerColor = Color(0xFF0C0D12),
                 shape = RoundedCornerShape(24.dp)
             )
         }
@@ -307,7 +307,7 @@ fun MainScreen(
                         Text("Not Now", color = TextMuted)
                     }
                 },
-                containerColor = Color(0xFF181A24),
+                containerColor = Color(0xFF0C0D12),
                 shape = RoundedCornerShape(24.dp)
             )
         }
@@ -432,7 +432,7 @@ fun GenericConfigPage(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF0C0D11))
+            .background(Color(0xFF000000))
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             // Top Bar
@@ -587,7 +587,7 @@ fun FloatingBottomBar(
     Surface(
         modifier = modifier
             .clip(RoundedCornerShape(32.dp))
-            .border(1.dp, Color(0xFF262A36), RoundedCornerShape(32.dp)),
+            .border(1.dp, CardStroke, RoundedCornerShape(32.dp)),
         color = BottomNavBg,
         shadowElevation = 12.dp
     ) {

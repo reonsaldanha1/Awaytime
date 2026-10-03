@@ -235,7 +235,7 @@ class FocusMonitorService : Service() {
 
     private fun createOverlayView(isFocus: Boolean): View {
         val root = FrameLayout(this).apply {
-            setBackgroundColor(Color.parseColor("#FA0A0C10"))
+            setBackgroundColor(Color.parseColor("#FA000000"))
             isClickable = true
             isFocusable = true
             setOnClickListener {

@@ -102,7 +102,7 @@ fun AppLimitBlockScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF0A0C10))
+            .background(Color(0xFF000000))
             .padding(horizontal = 24.dp),
         contentAlignment = Alignment.Center
     ) {
@@ -172,8 +172,8 @@ fun AppLimitBlockScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(20.dp))
-                    .border(1.dp, Color(0xFF381F1E), RoundedCornerShape(20.dp)),
-                color = Color(0xFF191214)
+                    .border(1.dp, Color(0xFF1C1F28), RoundedCornerShape(20.dp)),
+                color = Color(0xFF0C0D12)
             ) {
                 Column(
                     modifier = Modifier.padding(18.dp)

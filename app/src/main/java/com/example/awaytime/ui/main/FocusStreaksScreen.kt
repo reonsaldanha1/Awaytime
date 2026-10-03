@@ -42,9 +42,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import java.util.Date
 
-private val DarkCardBg = Color(0xFF171A21)
-private val DarkCardBorder = Color(0xFF232733)
-private val TextMutedGray = Color(0xFF9AA0B2)
+private val DarkCardBg = Color(0xFF0C0D12)
+private val DarkCardBorder = Color(0xFF1C1F28)
+private val TextMutedGray = Color(0xFFA2A9B8)
 
 @Composable
 fun FocusStreaksScreen(
@@ -101,7 +101,7 @@ fun FocusStreaksScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Color(0xFF0C0D11))
+            .background(Color(0xFF000000))
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             // Top Bar
@@ -753,7 +753,8 @@ fun AllowedAppsDialog(
                 .fillMaxWidth()
                 .fillMaxHeight(0.85f)
                 .clip(RoundedCornerShape(24.dp)),
-            color = Color(0xFF151821),
+            color = Color(0xFF0C0D12),
+            border = androidx.compose.foundation.BorderStroke(1.dp, DarkCardBorder),
             shape = RoundedCornerShape(24.dp)
         ) {
             Column(

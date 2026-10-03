@@ -28,9 +28,9 @@ import com.example.awaytime.data.DistractionItem
 import com.example.awaytime.data.DistractionManager
 import com.example.awaytime.theme.PastelCoral
 
-private val DarkCardBg = Color(0xFF171A21)
-private val DarkCardBorder = Color(0xFF232733)
-private val TextMutedGray = Color(0xFF9AA0B2)
+private val DarkCardBg = Color(0xFF0C0D12)
+private val DarkCardBorder = Color(0xFF1C1F28)
+private val TextMutedGray = Color(0xFFA2A9B8)
 
 @Composable
 fun DistractionsScreen(
@@ -80,7 +80,7 @@ fun DistractionsScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Color(0xFF0C0D11))
+            .background(Color(0xFF000000))
     ) {
         Column(
             modifier = Modifier.fillMaxSize()
@@ -650,7 +650,7 @@ fun AddAppToBlocklistDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = Color(0xFF151821),
+        containerColor = Color(0xFF0C0D12),
         shape = RoundedCornerShape(24.dp),
         title = {
             Text(
@@ -672,8 +672,8 @@ fun AddAppToBlocklistDialog(
                         unfocusedTextColor = Color.White,
                         focusedBorderColor = PastelCoral,
                         unfocusedBorderColor = DarkCardBorder,
-                        focusedContainerColor = Color(0xFF0F1218),
-                        unfocusedContainerColor = Color(0xFF0F1218)
+                        focusedContainerColor = Color(0xFF060709),
+                        unfocusedContainerColor = Color(0xFF060709)
                     ),
                     shape = RoundedCornerShape(12.dp),
                     singleLine = true
