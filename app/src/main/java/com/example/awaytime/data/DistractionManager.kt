@@ -106,6 +106,15 @@ object DistractionManager {
         if (blocked) {
             DistractionNotificationListenerService.dismissNotificationsForPackage(packageName)
         }
+        AppTimerManager.startOrUpdateMonitoring(context)
+    }
+
+    fun hasOverlayPermission(context: Context): Boolean {
+        return Settings.canDrawOverlays(context)
+    }
+
+    fun openOverlaySettings(context: Context) {
+        FocusSessionManager.openOverlaySettings(context)
     }
 
     fun getAllInstalledApps(context: Context): List<Pair<String, String>> {

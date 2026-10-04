@@ -199,32 +199,71 @@ object FocusSessionManager {
         return resolveInfos.mapNotNull { it.activityInfo?.packageName }.toSet()
     }
 
+    private var lastKnownForegroundPkg: String? = null
+    private var lastKnownForegroundTime = 0L
+
+    fun clearForegroundPackageCache() {
+        lastKnownForegroundPkg = null
+        lastKnownForegroundTime = 0L
+    }
+
     fun getForegroundPackage(context: Context): String? {
-        val usageStatsManager = context.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager ?: return null
+        val usageStatsManager = context.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager ?: return lastKnownForegroundPkg
         val now = System.currentTimeMillis()
         try {
-            val events = usageStatsManager.queryEvents(now - 10000L, now)
+            val events = usageStatsManager.queryEvents(now - 30000L, now)
             val event = UsageEvents.Event()
-            var lastForeground: String? = null
+            var lastResumedPkg: String? = null
+            var lastResumedTime = 0L
+            var lastPausedPkg: String? = null
+            var lastPausedTime = 0L
+
             while (events.hasNextEvent()) {
                 events.getNextEvent(event)
-                if (event.eventType == UsageEvents.Event.ACTIVITY_RESUMED ||
-                    event.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND) {
-                    lastForeground = event.packageName
+                val pkg = event.packageName ?: continue
+                when (event.eventType) {
+                    UsageEvents.Event.ACTIVITY_RESUMED,
+                    UsageEvents.Event.MOVE_TO_FOREGROUND -> {
+                        lastResumedPkg = pkg
+                        lastResumedTime = event.timeStamp
+                    }
+                    UsageEvents.Event.ACTIVITY_PAUSED,
+                    UsageEvents.Event.ACTIVITY_STOPPED,
+                    UsageEvents.Event.MOVE_TO_BACKGROUND -> {
+                        lastPausedPkg = pkg
+                        lastPausedTime = event.timeStamp
+                    }
                 }
             }
-            if (!lastForeground.isNullOrBlank()) {
-                return lastForeground
+
+            if (!lastResumedPkg.isNullOrBlank()) {
+                if (lastResumedTime >= lastPausedTime || lastPausedPkg != lastResumedPkg) {
+                    lastKnownForegroundPkg = lastResumedPkg
+                    lastKnownForegroundTime = lastResumedTime
+                    return lastResumedPkg
+                }
             }
         } catch (e: Exception) {}
 
-        // Fallback: queryUsageStats
+        // Fallback: queryUsageStats for recently active app
         try {
-            val stats = usageStatsManager.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, now - 60000L, now)
-            return stats?.maxByOrNull { it.lastTimeUsed }?.packageName
+            val stats = usageStatsManager.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, now - 120000L, now)
+            val activeStat = stats?.filter {
+                val pkg = it.packageName
+                pkg != null &&
+                pkg != "com.android.systemui" &&
+                pkg != "android" &&
+                it.lastTimeUsed >= (now - 60000L)
+            }?.maxByOrNull { it.lastTimeUsed }
+
+            if (activeStat != null) {
+                lastKnownForegroundPkg = activeStat.packageName
+                lastKnownForegroundTime = activeStat.lastTimeUsed
+                return activeStat.packageName
+            }
         } catch (e: Exception) {}
 
-        return null
+        return lastKnownForegroundPkg
     }
 
     fun getInstalledLaunchableApps(context: Context): List<FocusAppInfo> {

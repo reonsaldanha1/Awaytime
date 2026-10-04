@@ -19,6 +19,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -34,6 +35,7 @@ import androidx.compose.ui.unit.sp
 import com.example.awaytime.R
 import com.example.awaytime.data.AppTimerManager
 import com.example.awaytime.data.AwayTimeManager
+import com.example.awaytime.data.FocusSessionManager
 
 class AppLimitBlockActivity : ComponentActivity() {
 
@@ -41,6 +43,7 @@ class AppLimitBlockActivity : ComponentActivity() {
         const val EXTRA_PACKAGE_NAME = "extra_package_name"
         const val EXTRA_TIMER_MINUTES = "extra_timer_minutes"
         const val EXTRA_USED_MILLIS = "extra_used_millis"
+        const val EXTRA_IS_DISTRACTION_LOCK = "extra_is_distraction_lock"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -50,6 +53,7 @@ class AppLimitBlockActivity : ComponentActivity() {
         val packageName = intent.getStringExtra(EXTRA_PACKAGE_NAME) ?: ""
         val timerMinutes = intent.getIntExtra(EXTRA_TIMER_MINUTES, 30)
         val usedMillis = intent.getLongExtra(EXTRA_USED_MILLIS, 0L)
+        val isDistractionLock = intent.getBooleanExtra(EXTRA_IS_DISTRACTION_LOCK, false)
 
         val pm = packageManager
         val appName = try {
@@ -64,6 +68,7 @@ class AppLimitBlockActivity : ComponentActivity() {
                 appName = appName,
                 timerMinutes = timerMinutes,
                 usedMillis = usedMillis,
+                isDistractionLock = isDistractionLock,
                 onGoHome = {
                     val homeIntent = Intent(Intent.ACTION_MAIN).apply {
                         addCategory(Intent.CATEGORY_HOME)
@@ -82,8 +87,12 @@ fun AppLimitBlockScreen(
     appName: String,
     timerMinutes: Int,
     usedMillis: Long,
+    isDistractionLock: Boolean = false,
     onGoHome: () -> Unit
 ) {
+    val context = LocalContext.current
+    val hasOverlayPerm = remember { FocusSessionManager.canDrawOverlays(context) }
+
     BackHandler {
         onGoHome()
     }
@@ -137,7 +146,7 @@ fun AppLimitBlockScreen(
                 ) {
                     Icon(
                         painter = painterResource(id = R.drawable.ic_timer),
-                        contentDescription = "Limit Reached",
+                        contentDescription = "App Locked",
                         tint = Color(0xFFFF5252),
                         modifier = Modifier.size(34.dp)
                     )
@@ -147,7 +156,7 @@ fun AppLimitBlockScreen(
             Spacer(modifier = Modifier.height(28.dp))
 
             Text(
-                text = "DAILY LIMIT REACHED",
+                text = if (isDistractionLock) "APP LOCKED" else "DAILY LIMIT REACHED",
                 color = Color.White,
                 fontSize = 22.sp,
                 fontWeight = FontWeight.ExtraBold,
@@ -158,7 +167,11 @@ fun AppLimitBlockScreen(
             Spacer(modifier = Modifier.height(10.dp))
 
             Text(
-                text = "You've reached your daily screen time limit for $appName.",
+                text = if (isDistractionLock) {
+                    "$appName is locked by Awaytime to protect your time and prevent distractions."
+                } else {
+                    "You've reached your daily screen time limit for $appName."
+                },
                 color = Color(0xFFB0B7C6),
                 fontSize = 15.sp,
                 textAlign = TextAlign.Center,
@@ -167,7 +180,7 @@ fun AppLimitBlockScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Stats Card
+            // Info Card
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -178,64 +191,153 @@ fun AppLimitBlockScreen(
                 Column(
                     modifier = Modifier.padding(18.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = "Daily Limit",
-                            color = Color(0xFF8C92A4),
-                            fontSize = 13.5.sp
-                        )
-                        Text(
-                            text = AppTimerManager.formatTimerMinutes(timerMinutes),
-                            color = Color.White,
-                            fontSize = 13.5.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
+                    if (isDistractionLock) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "Status",
+                                color = Color(0xFF8C92A4),
+                                fontSize = 13.5.sp
+                            )
+                            Text(
+                                text = "Blocked in Distractions",
+                                color = Color(0xFFFF5252),
+                                fontSize = 13.5.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(10.dp))
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = "Screen Time Today",
-                            color = Color(0xFF8C92A4),
-                            fontSize = 13.5.sp
-                        )
-                        Text(
-                            text = AwayTimeManager.formatDuration(usedMillis),
-                            color = Color(0xFFFF7043),
-                            fontSize = 13.5.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "Protection",
+                                color = Color(0xFF8C92A4),
+                                fontSize = 13.5.sp
+                            )
+                            Text(
+                                text = "App & Notification Blocked",
+                                color = Color(0xFF69E094),
+                                fontSize = 13.5.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(10.dp))
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = "Limit Resets",
-                            color = Color(0xFF8C92A4),
-                            fontSize = 13.5.sp
-                        )
-                        Text(
-                            text = "Tonight at Midnight (00:00)",
-                            color = Color(0xFF69E094),
-                            fontSize = 13.5.sp,
-                            fontWeight = FontWeight.Medium
-                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "Manage Lock",
+                                color = Color(0xFF8C92A4),
+                                fontSize = 13.5.sp
+                            )
+                            Text(
+                                text = "Unlock in Distractions Page",
+                                color = Color(0xFF64B5F6),
+                                fontSize = 13.5.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    } else {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "Daily Limit",
+                                color = Color(0xFF8C92A4),
+                                fontSize = 13.5.sp
+                            )
+                            Text(
+                                text = AppTimerManager.formatTimerMinutes(timerMinutes),
+                                color = Color.White,
+                                fontSize = 13.5.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "Screen Time Today",
+                                color = Color(0xFF8C92A4),
+                                fontSize = 13.5.sp
+                            )
+                            Text(
+                                text = AwayTimeManager.formatDuration(usedMillis),
+                                color = Color(0xFFFF7043),
+                                fontSize = 13.5.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "Limit Resets",
+                                color = Color(0xFF8C92A4),
+                                fontSize = 13.5.sp
+                            )
+                            Text(
+                                text = "Tonight at Midnight (00:00)",
+                                color = Color(0xFF69E094),
+                                fontSize = 13.5.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(28.dp))
+            if (!hasOverlayPerm) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(14.dp))
+                        .border(1.dp, Color(0xFF5A3022), RoundedCornerShape(14.dp)),
+                    color = Color(0xFF261815)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Grant 'Display over other apps' for instant screen lock overlay.",
+                            color = Color(0xFFFFCC80),
+                            fontSize = 12.sp,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Button(
+                            onClick = { FocusSessionManager.openOverlaySettings(context) },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF7043)),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                        ) {
+                            Text("Grant", color = Color.White, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
 
             Text(
                 text = "Take a break and put your phone away. Disconnecting from screens helps you recharge and stay focused on real life.",
@@ -245,7 +347,7 @@ fun AppLimitBlockScreen(
                 lineHeight = 19.sp
             )
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(28.dp))
 
             Button(
                 onClick = onGoHome,

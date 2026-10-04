@@ -457,14 +457,14 @@ private fun checkPermissions(context: Context): List<PermissionStatusItem> {
         PermissionStatusItem(
             id = "overlay",
             title = "Display Over Other Apps",
-            subtitle = "Restricts blocked apps during active Focus mode sessions",
+            subtitle = "Enforces app locks for Distractions, App Timers, and Focus mode",
             isGranted = hasOverlay,
             isWorkingProperly = hasOverlay,
-            statusText = if (hasOverlay) "Active (Enabled)" else "Missing (Required for Focus)",
+            statusText = if (hasOverlay) "Active (Enabled)" else "Missing (Required for App Locks)",
             details = if (hasOverlay) {
-                "✓ Working properly: Screen overlay permission active. Restricts access to distracting apps during deep focus sessions."
+                "✓ Working properly: Screen overlay permission active. Restricts access to locked apps and shows lock screens instantly."
             } else {
-                "⚠ Missing: Awaytime cannot display the focus blocking screen over restricted apps without this permission."
+                "⚠ Missing: Awaytime cannot display the lock screen over restricted apps or timer-limited apps without this permission."
             },
             onAction = { c ->
                 FocusSessionManager.openOverlaySettings(c)

@@ -40,15 +40,18 @@ fun DistractionsScreen(
 ) {
     val context = LocalContext.current
     var hasPermission by remember { mutableStateOf(DistractionManager.hasNotificationListenerPermission(context)) }
+    var hasOverlayPerm by remember { mutableStateOf(DistractionManager.hasOverlayPermission(context)) }
     var distractions by remember { mutableStateOf(DistractionManager.getDistractions(context)) }
     var selectedTab by remember { mutableStateOf("notifications") } // "notifications" or "blocked"
     var isBlockerEnabled by remember { mutableStateOf(DistractionManager.isNotificationBlockerEnabled(context)) }
     var blockerMode by remember { mutableStateOf(DistractionManager.getNotificationBlockerMode(context)) }
     var blockedPackages by remember { mutableStateOf(DistractionManager.getBlockedPackages(context)) }
     var showAddAppBlockDialog by remember { mutableStateOf(false) }
+    var showOverlayPermissionDialog by remember { mutableStateOf(false) }
 
     fun refresh() {
         hasPermission = DistractionManager.hasNotificationListenerPermission(context)
+        hasOverlayPerm = DistractionManager.hasOverlayPermission(context)
         distractions = DistractionManager.getDistractions(context)
         isBlockerEnabled = DistractionManager.isNotificationBlockerEnabled(context)
         blockerMode = DistractionManager.getNotificationBlockerMode(context)
@@ -159,6 +162,43 @@ fun DistractionsScreen(
                                 Spacer(modifier = Modifier.height(12.dp))
                                 Button(
                                     onClick = { openNotificationListenerSettings(context) },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF7043)),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Text("Grant Permission", color = Color.White, fontWeight = FontWeight.SemiBold)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Overlay Permission Card if not granted
+                if (!hasOverlayPerm) {
+                    item {
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(20.dp))
+                                .border(1.dp, Color(0xFF5A3022), RoundedCornerShape(20.dp)),
+                            color = Color(0xFF281816)
+                        ) {
+                            Column(modifier = Modifier.padding(18.dp)) {
+                                Text(
+                                    text = "Display Over Other Apps Permission Needed",
+                                    color = Color(0xFFFFAB91),
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = "Required to lock restricted apps and immediately display the lock screen whenever a locked app is opened.",
+                                    color = Color(0xFFD7CCC8),
+                                    fontSize = 13.sp,
+                                    lineHeight = 18.sp
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Button(
+                                    onClick = { DistractionManager.openOverlaySettings(context) },
                                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF7043)),
                                     shape = RoundedCornerShape(12.dp)
                                 ) {
@@ -291,7 +331,7 @@ fun DistractionsScreen(
 
                             Spacer(modifier = Modifier.height(12.dp))
 
-                            // Add App to Blocklist Button
+                            // Lock App Button
                             OutlinedButton(
                                 onClick = { showAddAppBlockDialog = true },
                                 modifier = Modifier.fillMaxWidth(),
@@ -299,13 +339,13 @@ fun DistractionsScreen(
                                 border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2A364A))
                             ) {
                                 Icon(
-                                    painter = painterResource(id = R.drawable.ic_bell_off),
+                                    painter = painterResource(id = R.drawable.ic_timer),
                                     contentDescription = null,
-                                    tint = Color(0xFF64B5F6),
+                                    tint = Color(0xFFFF7043),
                                     modifier = Modifier.size(16.dp)
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("+ Add App to Blocklist", color = Color(0xFF64B5F6), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                Text("+ Lock App from Distractions", color = Color(0xFFFF8A65), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                             }
                         }
                     }
@@ -485,7 +525,7 @@ fun DistractionsScreen(
                                             shape = RoundedCornerShape(8.dp)
                                         ) {
                                             Text(
-                                                text = "Blocked",
+                                                text = "Locked & Muted",
                                                 color = Color(0xFFFF8A65),
                                                 fontSize = 11.5.sp,
                                                 fontWeight = FontWeight.Medium,
@@ -502,7 +542,7 @@ fun DistractionsScreen(
                                             },
                                             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
                                         ) {
-                                            Text("Unblock App", color = Color(0xFF4DA2FF), fontSize = 13.sp)
+                                            Text("Unlock App", color = Color(0xFF4DA2FF), fontSize = 13.sp)
                                         }
                                     } else {
                                         Spacer(modifier = Modifier.weight(1f))
@@ -513,6 +553,9 @@ fun DistractionsScreen(
                                             modifier = Modifier.clickable {
                                                 DistractionManager.setPackageBlocked(context, item.packageName, true)
                                                 refresh()
+                                                if (!hasOverlayPerm) {
+                                                    showOverlayPermissionDialog = true
+                                                }
                                             }
                                         ) {
                                             Row(
@@ -520,14 +563,14 @@ fun DistractionsScreen(
                                                 verticalAlignment = Alignment.CenterVertically
                                             ) {
                                                 Icon(
-                                                    painter = painterResource(id = R.drawable.ic_bell_off),
+                                                    painter = painterResource(id = R.drawable.ic_timer),
                                                     contentDescription = null,
                                                     tint = Color(0xFFFF8A65),
                                                     modifier = Modifier.size(14.dp)
                                                 )
                                                 Spacer(modifier = Modifier.width(6.dp))
                                                 Text(
-                                                    text = "Block Notifications",
+                                                    text = "Lock App & Mute",
                                                     color = Color(0xFFFF8A65),
                                                     fontSize = 12.5.sp,
                                                     fontWeight = FontWeight.SemiBold
@@ -561,21 +604,21 @@ fun DistractionsScreen(
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
                                     Icon(
-                                        painter = painterResource(id = R.drawable.ic_bell_off),
+                                        painter = painterResource(id = R.drawable.ic_timer),
                                         contentDescription = null,
                                         tint = Color(0xFF5A6678),
                                         modifier = Modifier.size(40.dp)
                                     )
                                     Spacer(modifier = Modifier.height(12.dp))
                                     Text(
-                                        text = "No apps currently blocked",
+                                        text = "No apps currently locked",
                                         color = Color.White,
                                         fontSize = 15.sp,
                                         fontWeight = FontWeight.SemiBold
                                     )
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Text(
-                                        text = "Add apps above to suppress notifications.",
+                                        text = "Lock apps above to block app opening and mute notifications.",
                                         color = TextMutedGray,
                                         fontSize = 13.sp
                                     )
@@ -599,20 +642,37 @@ fun DistractionsScreen(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Column(modifier = Modifier.weight(1f)) {
-                                        Text(text = name, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Medium)
-                                        Text(text = pkg, color = TextMutedGray, fontSize = 11.5.sp)
+                                        Text(text = name, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(
+                                            text = "Locked & Muted",
+                                            color = Color(0xFFFF8A65),
+                                            fontSize = 11.5.sp,
+                                            fontWeight = FontWeight.Medium
+                                        )
                                     }
 
-                                    Button(
-                                        onClick = {
-                                            DistractionManager.setPackageBlocked(context, pkg, false)
-                                            refresh()
-                                        },
-                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF28364A)),
-                                        shape = RoundedCornerShape(10.dp),
-                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                                    ) {
-                                        Text("Unblock", color = Color(0xFF90CAF9), fontSize = 12.sp)
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        OutlinedButton(
+                                            onClick = onNavigateToAppTimers,
+                                            shape = RoundedCornerShape(10.dp),
+                                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF384355)),
+                                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                                        ) {
+                                            Text("Set Limit", color = Color(0xFF90CAF9), fontSize = 12.sp)
+                                        }
+
+                                        Button(
+                                            onClick = {
+                                                DistractionManager.setPackageBlocked(context, pkg, false)
+                                                refresh()
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3A1F1E)),
+                                            shape = RoundedCornerShape(10.dp),
+                                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                                        ) {
+                                            Text("Unlock", color = Color(0xFFFFAB91), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                        }
                                     }
                                 }
                             }
@@ -630,6 +690,50 @@ fun DistractionsScreen(
                 DistractionManager.setPackageBlocked(context, pkg, true)
                 refresh()
                 showAddAppBlockDialog = false
+                if (!hasOverlayPerm) {
+                    showOverlayPermissionDialog = true
+                }
+            }
+        )
+    }
+
+    if (showOverlayPermissionDialog) {
+        AlertDialog(
+            onDismissRequest = { showOverlayPermissionDialog = false },
+            containerColor = Color(0xFF0C0D12),
+            shape = RoundedCornerShape(24.dp),
+            title = {
+                Text(
+                    text = "Display Over Other Apps Permission",
+                    color = Color.White,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text(
+                    text = "To immediately lock restricted apps and display the lock screen when opened, Awaytime requires the 'Display over other apps' permission.",
+                    color = Color(0xFFB0B7C6),
+                    fontSize = 13.5.sp,
+                    lineHeight = 19.sp
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        DistractionManager.openOverlaySettings(context)
+                        showOverlayPermissionDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF7043)),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Open Settings", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showOverlayPermissionDialog = false }) {
+                    Text("Later", color = TextMutedGray)
+                }
             }
         )
     }
@@ -654,12 +758,20 @@ fun AddAppToBlocklistDialog(
         containerColor = Color(0xFF0C0D12),
         shape = RoundedCornerShape(24.dp),
         title = {
-            Text(
-                text = "Block App Notifications",
-                color = Color.White,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold
-            )
+            Column {
+                Text(
+                    text = "Lock App from Distractions",
+                    color = Color.White,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Select an app to prevent opening & mute alerts.",
+                    color = TextMutedGray,
+                    fontSize = 12.5.sp
+                )
+            }
         },
         text = {
             Column(modifier = Modifier.fillMaxWidth()) {
@@ -708,7 +820,7 @@ fun AddAppToBlocklistDialog(
                                     modifier = Modifier.weight(1f)
                                 )
                                 Text(
-                                    text = "Block",
+                                    text = "Lock App",
                                     color = Color(0xFFFF8A65),
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold

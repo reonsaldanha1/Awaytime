@@ -107,10 +107,24 @@ object AppTimerManager {
         }
     }
 
+    private var lastUsageCheckTime = 0L
+    private val usageCache = mutableMapOf<String, Long>()
+
+    fun invalidateUsageCache() {
+        usageCache.clear()
+        lastUsageCheckTime = 0L
+    }
+
     fun getTodayUsageForPackage(context: Context, packageName: String): Long {
-        val usageStatsManager = context.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager ?: return 0L
+        val now = System.currentTimeMillis()
+        if (now - lastUsageCheckTime < 2500L && usageCache.containsKey(packageName)) {
+            return usageCache[packageName] ?: 0L
+        }
+
+        val usageStatsManager = context.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager
+            ?: return usageCache[packageName] ?: 0L
+
         val calendar = Calendar.getInstance()
-        val now = calendar.timeInMillis
         calendar.set(Calendar.HOUR_OF_DAY, 0)
         calendar.set(Calendar.MINUTE, 0)
         calendar.set(Calendar.SECOND, 0)
@@ -147,16 +161,17 @@ object AppTimerManager {
             }
         } catch (e: Exception) {}
 
-        if (duration <= 0L) {
-            try {
-                val stats = usageStatsManager.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, startOfDay, now)
-                val appStat = stats?.firstOrNull { it.packageName == packageName }
-                if (appStat != null && appStat.lastTimeUsed >= startOfDay) {
-                    duration = appStat.totalTimeInForeground
-                }
-            } catch (e: Exception) {}
-        }
+        try {
+            val stats = usageStatsManager.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, startOfDay, now)
+            val matchingStats = stats?.filter { it.packageName == packageName && it.lastTimeUsed >= startOfDay }
+            val statsSum = matchingStats?.sumOf { it.totalTimeInForeground } ?: 0L
+            if (statsSum > duration) {
+                duration = statsSum
+            }
+        } catch (e: Exception) {}
 
+        usageCache[packageName] = duration
+        lastUsageCheckTime = now
         return duration
     }
 
@@ -272,8 +287,9 @@ object AppTimerManager {
     fun startOrUpdateMonitoring(context: Context) {
         val hasTimers = hasAnyTimer(context)
         val isFocusActive = FocusSessionManager.isFocusActive(context)
+        val hasBlockedDistractions = DistractionManager.getBlockedPackages(context).isNotEmpty()
 
-        if (hasTimers || isFocusActive) {
+        if (hasTimers || isFocusActive || hasBlockedDistractions) {
             val intent = Intent(context, FocusMonitorService::class.java).apply {
                 action = FocusMonitorService.ACTION_START_FOCUS
             }

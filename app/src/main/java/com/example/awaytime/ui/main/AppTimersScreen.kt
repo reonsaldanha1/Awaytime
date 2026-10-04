@@ -28,6 +28,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.example.awaytime.R
 import com.example.awaytime.data.AppTimerItem
 import com.example.awaytime.data.AppTimerManager
@@ -47,13 +50,27 @@ fun AppTimersScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     var appsList by remember { mutableStateOf<List<AppTimerItem>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var searchQuery by remember { mutableStateOf("") }
     var selectedFilter by remember { mutableStateOf("All") } // "All", "Limits Set", "Reached"
     var selectedAppForTimer by remember { mutableStateOf<AppTimerItem?>(null) }
+    var showOverlayPermissionDialog by remember { mutableStateOf(false) }
 
-    val hasOverlayPerm = remember { FocusSessionManager.canDrawOverlays(context) }
+    var hasOverlayPerm by remember { mutableStateOf(FocusSessionManager.canDrawOverlays(context)) }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                hasOverlayPerm = FocusSessionManager.canDrawOverlays(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
     suspend fun loadApps() {
         isLoading = true
@@ -341,6 +358,9 @@ fun AppTimersScreen(
             onSaveTimer = { mins ->
                 AppTimerManager.setTimerMinutes(context, app.packageName, mins)
                 selectedAppForTimer = null
+                if (!hasOverlayPerm) {
+                    showOverlayPermissionDialog = true
+                }
                 // Re-evaluate
                 appsList = appsList.map {
                     if (it.packageName == app.packageName) {
@@ -366,6 +386,47 @@ fun AppTimersScreen(
                         .thenByDescending { it.usageTodayMillis }
                         .thenBy { it.appName.lowercase() }
                 )
+            }
+        )
+    }
+
+    if (showOverlayPermissionDialog) {
+        AlertDialog(
+            onDismissRequest = { showOverlayPermissionDialog = false },
+            containerColor = Color(0xFF0C0D12),
+            shape = RoundedCornerShape(24.dp),
+            title = {
+                Text(
+                    text = "Display Over Other Apps Permission",
+                    color = Color.White,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text(
+                    text = "To lock restricted apps and immediately display the lock screen when their daily limit is reached, Awaytime needs 'Display over other apps' permission.",
+                    color = Color(0xFFB0B7C6),
+                    fontSize = 13.5.sp,
+                    lineHeight = 19.sp
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        FocusSessionManager.openOverlaySettings(context)
+                        showOverlayPermissionDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = PastelCoral),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Open Settings", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showOverlayPermissionDialog = false }) {
+                    Text("Later", color = TextMutedGray)
+                }
             }
         )
     }
