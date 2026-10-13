@@ -62,7 +62,23 @@ class AwayWidgetSmallProvider : AppWidgetProvider() {
                 }
 
                 views.setTextViewText(R.id.tv_away_label, styleText("Away"))
-                views.setTextViewText(R.id.tv_away_time, styleText(stats.formattedAwayTime()))
+
+                if (font.fontResId != null) {
+                    val awayTimeBitmap = WidgetTextBitmapHelper.renderTextToBitmap(
+                        context = context,
+                        text = stats.formattedAwayTime(),
+                        fontResId = font.fontResId,
+                        textSizeSp = 24f,
+                        textColorInt = 0xFFFFFFFF.toInt()
+                    )
+                    views.setImageViewBitmap(R.id.iv_away_time, awayTimeBitmap)
+                    views.setViewVisibility(R.id.iv_away_time, View.VISIBLE)
+                    views.setViewVisibility(R.id.tv_away_time, View.GONE)
+                } else {
+                    views.setViewVisibility(R.id.iv_away_time, View.GONE)
+                    views.setViewVisibility(R.id.tv_away_time, View.VISIBLE)
+                    views.setTextViewText(R.id.tv_away_time, styleText(stats.formattedAwayTime()))
+                }
 
                 if (isMinimal) {
                     views.setTextColor(R.id.tv_away_label, 0xFFAAAAAA.toInt())

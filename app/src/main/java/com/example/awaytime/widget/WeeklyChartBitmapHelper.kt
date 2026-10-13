@@ -15,15 +15,25 @@ object WeeklyChartBitmapHelper {
         width: Int = 480,
         height: Int = 260,
         accentColorInt: Int = Color.WHITE,
-        fontFamily: String = "monospace"
+        fontFamily: String = "monospace",
+        fontResId: Int? = null,
+        context: android.content.Context? = null
     ): Bitmap {
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
 
-        val tf = try {
-            Typeface.create(fontFamily, Typeface.NORMAL)
-        } catch (e: Exception) {
-            Typeface.MONOSPACE
+        val tf = if (fontResId != null && context != null) {
+            try {
+                androidx.core.content.res.ResourcesCompat.getFont(context, fontResId) ?: Typeface.MONOSPACE
+            } catch (e: Exception) {
+                Typeface.MONOSPACE
+            }
+        } else {
+            try {
+                Typeface.create(fontFamily, Typeface.NORMAL)
+            } catch (e: Exception) {
+                Typeface.MONOSPACE
+            }
         }
 
         val count = points.size.coerceAtLeast(1)

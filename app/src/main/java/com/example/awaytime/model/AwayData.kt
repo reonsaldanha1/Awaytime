@@ -74,11 +74,22 @@ enum class WidgetAccent(val displayName: String, val colorLong: Long) {
 /**
  * Fonts supported for widget text rendering.
  */
-enum class WidgetFont(val displayName: String, val family: String) {
+enum class WidgetFont(
+    val displayName: String,
+    val family: String,
+    val fontResId: Int? = null,
+    val fallbackFamily: String = "sans-serif"
+) {
     SANS_SERIF("Modern Sans", "sans-serif"),
+    DOT_MATRIX("Dot Matrix", "dot-matrix", com.example.awaytime.R.font.dot_matrix, "monospace"),
     MONOSPACE("Tech Mono", "monospace"),
+    CONDENSED("Clean Condensed", "sans-serif-condensed"),
     SERIF("Classic Serif", "serif"),
-    CASUAL("Casual Rounded", "casual")
+    CASUAL("Casual Rounded", "casual"),
+    CURSIVE("Elegant Script", "cursive"),
+    LIGHT("Minimal Light", "sans-serif-light"),
+    BLACK("Bold Heavy", "sans-serif-black"),
+    MEDIUM("Geometric Medium", "sans-serif-medium")
 }
 
 /**

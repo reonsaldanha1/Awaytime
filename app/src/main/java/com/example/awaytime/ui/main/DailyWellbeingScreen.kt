@@ -196,6 +196,12 @@ fun DailyWellbeingScreen(
                                     fontWeight = FontWeight.Bold,
                                     letterSpacing = (-0.5).sp
                                 )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Daily usage: ${displayData.formattedTotalScreenTime} (24h - usage)",
+                                    color = TextMutedGray,
+                                    fontSize = 12.5.sp
+                                )
 
                                 displayData.comparison?.let { comp ->
                                     Spacer(modifier = Modifier.height(8.dp))

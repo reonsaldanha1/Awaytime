@@ -209,39 +209,28 @@ object AwayTimeManager {
             } else {
                 intervals.add(ScreenInterval(lastEventTime, now, isAway = true))
             }
-
-            // 2. Cross-check with package usage stats strictly for apps used today
-            val packageMap = mutableMapOf<String, Long>()
-            val elapsedToday = (now - startOfDay).coerceAtLeast(0L)
-            try {
-                val statsList = usageStatsManager.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, startOfDay, now)
-                if (!statsList.isNullOrEmpty()) {
-                    for (stat in statsList) {
-                        val pkg = stat.packageName
-                        if (pkg != context.packageName && pkg != "com.android.systemui" && stat.totalTimeInForeground > 1000L && stat.lastTimeUsed >= startOfDay) {
-                            val current = packageMap[pkg] ?: 0L
-                            val bounded = minOf(stat.totalTimeInForeground, elapsedToday)
-                            packageMap[pkg] = maxOf(current, bounded)
-                        }
-                    }
-                }
-            } catch (e: Exception) {}
-
-            val totalAppForegroundTime = packageMap.values.sum()
-            totalInteractiveMillis = maxOf(totalInteractiveMillis, totalAppForegroundTime).coerceIn(0L, elapsedToday)
         } catch (e: Exception) {
-            totalInteractiveMillis = 5 * 3600 * 1000L
+            e.printStackTrace()
         }
 
-        // Out of 24 hours, time NOT using phone:
-        // Away Time = 24 Hours - Screen Usage Time Today
-        val totalAwayMillis = (DAY_MILLIS - totalInteractiveMillis).coerceIn(0L, DAY_MILLIS)
+        val dailyData = getDailyWellbeingData(context)
+        val totalScreenMillis = dailyData.totalScreenMillis
+        val totalAwayMillis = dailyData.totalAwayMillis
+
+        if (intervals.isEmpty()) {
+            if (totalScreenMillis > 0L) {
+                intervals.add(ScreenInterval(startOfDay, (startOfDay + totalScreenMillis).coerceAtMost(now), isAway = false))
+                intervals.add(ScreenInterval((startOfDay + totalScreenMillis).coerceAtMost(now), now, isAway = true))
+            } else {
+                intervals.add(ScreenInterval(startOfDay, now, isAway = true))
+            }
+        }
 
         return DailyAwayStats(
             dateLabel = dateLabel,
             totalAwayMillis = totalAwayMillis,
-            totalScreenMillis = totalInteractiveMillis,
-            currentStreakMillis = if (intervals.isNotEmpty() && intervals.last().isAway) (now - intervals.last().startMillis) else 0L,
+            totalScreenMillis = totalScreenMillis,
+            currentStreakMillis = if (intervals.isNotEmpty() && intervals.last().isAway) (now - intervals.last().startMillis).coerceAtLeast(0L) else 0L,
             intervals = intervals
         )
     }
@@ -290,7 +279,11 @@ object AwayTimeManager {
                     }
 
                     val maxPossibleDay = if (i == 0) (now - dayStart).coerceAtLeast(0L) else DAY_MILLIS
-                    val dayScreenMillis = dayPkgMap.values.sum().coerceIn(0L, maxPossibleDay)
+                    val dayScreenMillis = if (i == 0) {
+                        try { getDailyWellbeingData(context).totalScreenMillis } catch (e: Exception) { dayPkgMap.values.sum() }
+                    } else {
+                        dayPkgMap.values.sum()
+                    }.coerceIn(0L, maxPossibleDay)
                     val dayAwayMillis = (DAY_MILLIS - dayScreenMillis).coerceIn(0L, DAY_MILLIS)
                     totalWeekAwayMillis += dayAwayMillis
                     val awayHoursFloat = dayAwayMillis.toFloat() / 3600000f
@@ -603,9 +596,9 @@ object AwayTimeManager {
             }
             val categories = activeCategories
 
-            val todayStats = getTodayAwayStats(context)
-            val finalTotalScreenMillis = maxOf(totalForegroundMillis, todayStats.totalScreenMillis).coerceIn(0L, elapsedToday)
-            val otherMillis = (finalTotalScreenMillis - topAppsSum).coerceAtLeast(0L)
+            // Daily usage is the exact sum of all foreground apps used today
+            val finalTotalScreenMillis = topAppsSum.coerceIn(0L, elapsedToday)
+            val otherMillis = 0L
 
             // Calculate yesterday comparison
             var yesterdayScreenMillis = 0L
@@ -643,6 +636,7 @@ object AwayTimeManager {
                 comparisonLabel = compLabel
             )
 
+            // Away time is strictly 24 hours - daily usage data
             val awayMillis = (DAY_MILLIS - finalTotalScreenMillis).coerceIn(0L, DAY_MILLIS)
 
             return DailyWellbeingData(
@@ -657,16 +651,17 @@ object AwayTimeManager {
             )
         } catch (e: Exception) {
             val emptyComparison = UsageComparison(0L, "0 m", 0, false, "0 m compared to yesterday")
-            val todayStats = getTodayAwayStats(context)
+            val defaultScreen = 0L
+            val defaultAway = DAY_MILLIS
             return DailyWellbeingData(
-                totalScreenMillis = todayStats.totalScreenMillis,
-                formattedTotalScreenTime = formatDuration(todayStats.totalScreenMillis),
+                totalScreenMillis = defaultScreen,
+                formattedTotalScreenTime = formatDuration(defaultScreen),
                 topApps = emptyList(),
                 categories = emptyList(),
                 otherAppsMillis = 0L,
                 comparison = emptyComparison,
-                totalAwayMillis = todayStats.totalAwayMillis,
-                formattedAwayTime = formatDuration(todayStats.totalAwayMillis)
+                totalAwayMillis = defaultAway,
+                formattedAwayTime = formatDuration(defaultAway)
             )
         }
     }
@@ -805,7 +800,11 @@ object AwayTimeManager {
                 }
 
                 val maxPossibleDay = if (i == 0) (now - dayStart).coerceAtLeast(0L) else DAY_MILLIS
-                val dayTotal = dayPkgMap.values.sum().coerceIn(0L, maxPossibleDay)
+                val dayTotal = if (i == 0) {
+                    try { getDailyWellbeingData(context).totalScreenMillis } catch (e: Exception) { dayPkgMap.values.sum() }
+                } else {
+                    dayPkgMap.values.sum()
+                }.coerceIn(0L, maxPossibleDay)
                 val dayHours = (dayTotal.toFloat() / 3600000f).coerceAtLeast(0f)
                 dailyBreakdown.add(WeeklyDayUsage(dayLabel, dayHours, isToday = (i == 0)))
                 totalWeekForegroundMillis += dayTotal

@@ -18,6 +18,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -265,12 +266,7 @@ fun CustomizeWidgetScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     WidgetFont.values().forEach { font ->
                         val isSelected = selectedFont == font
-                        val composeFontFamily = when (font) {
-                            WidgetFont.MONOSPACE -> FontFamily.Monospace
-                            WidgetFont.SERIF -> FontFamily.Serif
-                            WidgetFont.CASUAL -> FontFamily.Cursive
-                            WidgetFont.SANS_SERIF -> FontFamily.Default
-                        }
+                        val (composeFontFamily, composeFontWeight) = getComposeFontFamilyAndWeight(font)
 
                         Surface(
                             modifier = Modifier
@@ -306,7 +302,8 @@ fun CustomizeWidgetScreen(
                                         text = "Sample: 19h 45m away",
                                         color = TextMutedGray,
                                         fontSize = 13.sp,
-                                        fontFamily = composeFontFamily
+                                        fontFamily = composeFontFamily,
+                                        fontWeight = composeFontWeight
                                     )
                                 }
 
@@ -402,6 +399,22 @@ fun CustomizeWidgetScreen(
 }
 
 @Composable
+fun getComposeFontFamilyAndWeight(font: WidgetFont): Pair<FontFamily, FontWeight> {
+    return when (font) {
+        WidgetFont.DOT_MATRIX -> Pair(FontFamily(Font(R.font.dot_matrix)), FontWeight.Normal)
+        WidgetFont.MONOSPACE -> Pair(FontFamily.Monospace, FontWeight.Normal)
+        WidgetFont.CONDENSED -> Pair(FontFamily.SansSerif, FontWeight.Normal)
+        WidgetFont.SERIF -> Pair(FontFamily.Serif, FontWeight.Normal)
+        WidgetFont.CASUAL -> Pair(FontFamily.Cursive, FontWeight.Normal)
+        WidgetFont.CURSIVE -> Pair(FontFamily.Cursive, FontWeight.Normal)
+        WidgetFont.LIGHT -> Pair(FontFamily.SansSerif, FontWeight.Light)
+        WidgetFont.BLACK -> Pair(FontFamily.SansSerif, FontWeight.Black)
+        WidgetFont.MEDIUM -> Pair(FontFamily.SansSerif, FontWeight.Medium)
+        WidgetFont.SANS_SERIF -> Pair(FontFamily.Default, FontWeight.Normal)
+    }
+}
+
+@Composable
 fun WidgetPreviewCard(
     accent: WidgetAccent,
     font: WidgetFont,
@@ -410,12 +423,7 @@ fun WidgetPreviewCard(
     showSparkle: Boolean
 ) {
     val activeColor = if (isMinimal) Color.White else Color(accent.colorLong)
-    val composeFontFamily = when (font) {
-        WidgetFont.MONOSPACE -> FontFamily.Monospace
-        WidgetFont.SERIF -> FontFamily.Serif
-        WidgetFont.CASUAL -> FontFamily.Cursive
-        WidgetFont.SANS_SERIF -> FontFamily.Default
-    }
+    val (composeFontFamily, composeFontWeight) = getComposeFontFamilyAndWeight(font)
 
     Surface(
         modifier = Modifier
@@ -465,14 +473,15 @@ fun WidgetPreviewCard(
                         text = "Away",
                         color = if (isMinimal) Color(0xFFAAAAAA) else Color(0xFF9EACB9),
                         fontSize = 13.sp,
-                        fontFamily = composeFontFamily
+                        fontFamily = composeFontFamily,
+                        fontWeight = composeFontWeight
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = "19h 25m",
                         color = Color.White,
                         fontSize = 26.sp,
-                        fontWeight = FontWeight.Bold,
+                        fontWeight = if (composeFontWeight != FontWeight.Normal) composeFontWeight else FontWeight.Bold,
                         fontFamily = composeFontFamily
                     )
                 }

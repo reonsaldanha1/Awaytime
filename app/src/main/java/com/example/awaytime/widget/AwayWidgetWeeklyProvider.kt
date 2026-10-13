@@ -7,6 +7,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import android.view.View
 import android.widget.RemoteViews
 import android.text.SpannableString
 import android.text.Spanned
@@ -64,7 +65,24 @@ class AwayWidgetWeeklyProvider : AppWidgetProvider() {
                 }
 
                 views.setTextViewText(R.id.tv_weekly_header, styleText("Weekly away time"))
-                views.setTextViewText(R.id.tv_weekly_total, styleText(weeklyStats.formattedTotal()))
+
+                if (font.fontResId != null) {
+                    val weeklyTotalBitmap = WidgetTextBitmapHelper.renderTextToBitmap(
+                        context = context,
+                        text = weeklyStats.formattedTotal(),
+                        fontResId = font.fontResId,
+                        textSizeSp = 28f,
+                        textColorInt = 0xFFFFFFFF.toInt()
+                    )
+                    views.setImageViewBitmap(R.id.iv_weekly_total, weeklyTotalBitmap)
+                    views.setViewVisibility(R.id.iv_weekly_total, View.VISIBLE)
+                    views.setViewVisibility(R.id.tv_weekly_total, View.GONE)
+                } else {
+                    views.setViewVisibility(R.id.iv_weekly_total, View.GONE)
+                    views.setViewVisibility(R.id.tv_weekly_total, View.VISIBLE)
+                    views.setTextViewText(R.id.tv_weekly_total, styleText(weeklyStats.formattedTotal()))
+                }
+
                 views.setTextViewText(R.id.tv_weekly_dates, styleText(weeklyStats.dateRangeLabel))
                 views.setTextViewText(R.id.tv_day_average_value, styleText(weeklyStats.formattedAverage()))
                 views.setTextViewText(R.id.tv_weekly_goal_badge, styleText("DETOX GOAL • ${prefs.targetGoalHours}h/DAY"))
@@ -80,7 +98,9 @@ class AwayWidgetWeeklyProvider : AppWidgetProvider() {
                 val chartBitmap = WeeklyChartBitmapHelper.generateWeeklyChart(
                     points = weeklyStats.dailyPoints,
                     accentColorInt = accentColorInt,
-                    fontFamily = font.family
+                    fontFamily = font.family,
+                    fontResId = font.fontResId,
+                    context = context
                 )
                 views.setImageViewBitmap(R.id.iv_weekly_chart, chartBitmap)
 
