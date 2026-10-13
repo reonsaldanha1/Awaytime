@@ -68,7 +68,7 @@ class AwayWidgetSmallProvider : AppWidgetProvider() {
                         context = context,
                         text = stats.formattedAwayTime(),
                         fontResId = font.fontResId,
-                        textSizeSp = 24f,
+                        textSizeSp = 29f,
                         textColorInt = 0xFFFFFFFF.toInt()
                     )
                     views.setImageViewBitmap(R.id.iv_away_time, awayTimeBitmap)

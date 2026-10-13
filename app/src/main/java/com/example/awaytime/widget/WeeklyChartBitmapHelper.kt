@@ -122,14 +122,14 @@ object WeeklyChartBitmapHelper {
 
         val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.parseColor("#D0FFFFFF")
-            textSize = 21f
+            textSize = 24f
             textAlign = Paint.Align.CENTER
             typeface = tf
         }
 
         val hourValuePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.parseColor("#80FFFFFF")
-            textSize = 15f
+            textSize = 17f
             textAlign = Paint.Align.CENTER
             typeface = tf
         }

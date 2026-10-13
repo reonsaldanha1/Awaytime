@@ -39,7 +39,7 @@
                 android:layout_height="wrap_content"
                 android:text="Away"
                 android:textColor="#FF9EACB9"
-                android:textSize="13sp" />
+                android:textSize="15sp" />
 
             <TextView
                 android:id="@+id/tv_away_time"
@@ -48,13 +48,13 @@
                 android:layout_marginTop="2dp"
                 android:text="8h 19m"
                 android:textColor="#FFFFFFFF"
-                android:textSize="24sp"
+                android:textSize="29sp"
                 android:textStyle="bold" />
 
             <ImageView
                 android:id="@+id/iv_away_time"
                 android:layout_width="wrap_content"
-                android:layout_height="32dp"
+                android:layout_height="40dp"
                 android:layout_marginTop="2dp"
                 android:visibility="gone"
                 android:adjustViewBounds="true"

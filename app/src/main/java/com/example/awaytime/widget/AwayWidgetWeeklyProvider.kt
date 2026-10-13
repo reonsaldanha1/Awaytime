@@ -71,7 +71,7 @@ class AwayWidgetWeeklyProvider : AppWidgetProvider() {
                         context = context,
                         text = weeklyStats.formattedTotal(),
                         fontResId = font.fontResId,
-                        textSizeSp = 28f,
+                        textSizeSp = 34f,
                         textColorInt = 0xFFFFFFFF.toInt()
                     )
                     views.setImageViewBitmap(R.id.iv_weekly_total, weeklyTotalBitmap)

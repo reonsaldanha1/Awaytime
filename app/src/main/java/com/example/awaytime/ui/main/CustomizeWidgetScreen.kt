@@ -472,7 +472,7 @@ fun WidgetPreviewCard(
                     Text(
                         text = "Away",
                         color = if (isMinimal) Color(0xFFAAAAAA) else Color(0xFF9EACB9),
-                        fontSize = 13.sp,
+                        fontSize = 15.sp,
                         fontFamily = composeFontFamily,
                         fontWeight = composeFontWeight
                     )
@@ -480,7 +480,7 @@ fun WidgetPreviewCard(
                     Text(
                         text = "19h 25m",
                         color = Color.White,
-                        fontSize = 26.sp,
+                        fontSize = 32.sp,
                         fontWeight = if (composeFontWeight != FontWeight.Normal) composeFontWeight else FontWeight.Bold,
                         fontFamily = composeFontFamily
                     )
