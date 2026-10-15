@@ -359,6 +359,129 @@ object AwayTimeManager {
         }
     }
 
+    /**
+     * Accurately calculates foreground usage per package for a given time window [startTime, endTime]
+     * using Android UsageEvents.
+     *
+     * This avoids Android's UsageStatsManager.queryUsageStats(INTERVAL_DAILY) boundary bug where daily
+     * buckets do not start at midnight local time and leak the previous day's hours into today's screen time.
+     */
+    fun getForegroundUsageByPackage(context: Context, startTime: Long, endTime: Long): Map<String, Long> {
+        val usageStatsManager = context.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager
+            ?: return emptyMap()
+
+        val packageMap = mutableMapOf<String, Long>()
+
+        // Look back up to 24 hours prior to startTime to capture any session that crossed into this window (e.g. midnight rollover)
+        val lookback = (startTime - 24 * 3600_000L).coerceAtLeast(0L)
+
+        try {
+            val events = usageStatsManager.queryEvents(lookback, endTime)
+            val event = UsageEvents.Event()
+
+            var currentForegroundPkg: String? = null
+            var sessionStartTime = 0L
+            val resumedActivities = mutableSetOf<String>()
+            var isScreenOn = true
+
+            fun closeCurrentSession(eventTime: Long) {
+                val pkg = currentForegroundPkg ?: return
+                if (sessionStartTime > 0L) {
+                    val effectiveStart = maxOf(sessionStartTime, startTime)
+                    val effectiveEnd = minOf(eventTime, endTime)
+                    if (effectiveEnd > effectiveStart) {
+                        val duration = effectiveEnd - effectiveStart
+                        packageMap[pkg] = (packageMap[pkg] ?: 0L) + duration
+                    }
+                }
+                currentForegroundPkg = null
+                sessionStartTime = 0L
+            }
+
+            while (events.hasNextEvent()) {
+                events.getNextEvent(event)
+                val pkg = event.packageName ?: continue
+                val time = event.timeStamp
+                val eventType = event.eventType
+                val className = event.className ?: ""
+
+                when (eventType) {
+                    UsageEvents.Event.ACTIVITY_RESUMED,
+                    UsageEvents.Event.MOVE_TO_FOREGROUND -> {
+                        val actKey = "$pkg/$className"
+                        resumedActivities.add(actKey)
+
+                        if (pkg != currentForegroundPkg) {
+                            closeCurrentSession(time)
+                            resumedActivities.removeAll { !it.startsWith("$pkg/") }
+                            currentForegroundPkg = pkg
+                            sessionStartTime = time
+                        }
+                    }
+
+                    UsageEvents.Event.ACTIVITY_PAUSED,
+                    UsageEvents.Event.MOVE_TO_BACKGROUND -> {
+                        val actKey = "$pkg/$className"
+                        resumedActivities.remove(actKey)
+
+                        if (pkg == currentForegroundPkg) {
+                            val hasOtherResumed = resumedActivities.any { it.startsWith("$pkg/") }
+                            if (!hasOtherResumed) {
+                                closeCurrentSession(time)
+                            }
+                        }
+                    }
+
+                    UsageEvents.Event.ACTIVITY_STOPPED -> {
+                        val actKey = "$pkg/$className"
+                        resumedActivities.remove(actKey)
+
+                        if (pkg == currentForegroundPkg) {
+                            val hasOtherResumed = resumedActivities.any { it.startsWith("$pkg/") }
+                            if (!hasOtherResumed) {
+                                closeCurrentSession(time)
+                            }
+                        }
+                    }
+
+                    UsageEvents.Event.SCREEN_NON_INTERACTIVE,
+                    UsageEvents.Event.KEYGUARD_SHOWN -> {
+                        closeCurrentSession(time)
+                        resumedActivities.clear()
+                        isScreenOn = false
+                    }
+
+                    UsageEvents.Event.SCREEN_INTERACTIVE,
+                    UsageEvents.Event.KEYGUARD_HIDDEN -> {
+                        isScreenOn = true
+                    }
+
+                    UsageEvents.Event.DEVICE_SHUTDOWN -> {
+                        closeCurrentSession(time)
+                        resumedActivities.clear()
+                        isScreenOn = false
+                    }
+
+                    UsageEvents.Event.DEVICE_STARTUP -> {
+                        currentForegroundPkg = null
+                        sessionStartTime = 0L
+                        resumedActivities.clear()
+                        isScreenOn = true
+                    }
+                }
+            }
+
+            // If an app is still open right now (and screen is on)
+            if (isScreenOn && currentForegroundPkg != null && sessionStartTime > 0L) {
+                closeCurrentSession(endTime)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        return packageMap
+    }
+
     fun getDailyWellbeingData(context: Context): DailyWellbeingData {
         val calendar = Calendar.getInstance()
         val now = calendar.timeInMillis
@@ -412,7 +535,6 @@ object AwayTimeManager {
                 ?: return DailyWellbeingData(fallbackTotalMillis, "6 h 21 m", fallbackTopApps, fallbackCategories, fallbackOtherMillis, fallbackComparison)
 
             val pm = context.packageManager
-            val packageMap = mutableMapOf<String, Long>()
             val elapsedToday = (now - startOfDay).coerceAtLeast(0L)
 
             // Detect home/launcher packages so we don't treat the home screen as an app
@@ -424,82 +546,8 @@ object AwayTimeManager {
             val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager
             val imePackages = imm?.enabledInputMethodList?.map { it.packageName }?.toSet() ?: emptySet()
 
-            // 1. Primary accurate source: UsageEvents between startOfDay (00:00:00) and now
-            try {
-                val events = usageStatsManager.queryEvents(startOfDay, now)
-                val event = UsageEvents.Event()
-                var currentForegroundPkg: String? = null
-                var currentForegroundStart = 0L
-
-                while (events.hasNextEvent()) {
-                    events.getNextEvent(event)
-                    val pkg = event.packageName ?: continue
-                    val eventType = event.eventType
-                    val time = event.timeStamp.coerceIn(startOfDay, now)
-
-                    when (eventType) {
-                        UsageEvents.Event.ACTIVITY_RESUMED,
-                        UsageEvents.Event.MOVE_TO_FOREGROUND -> {
-                            if (currentForegroundPkg != null && currentForegroundPkg != pkg) {
-                                val duration = time - currentForegroundStart
-                                if (duration > 0L) {
-                                    packageMap[currentForegroundPkg!!] = (packageMap[currentForegroundPkg!!] ?: 0L) + duration
-                                }
-                            }
-                            currentForegroundPkg = pkg
-                            currentForegroundStart = time
-                        }
-                        UsageEvents.Event.ACTIVITY_PAUSED,
-                        UsageEvents.Event.ACTIVITY_STOPPED,
-                        UsageEvents.Event.MOVE_TO_BACKGROUND -> {
-                            if (currentForegroundPkg == pkg) {
-                                val duration = time - currentForegroundStart
-                                if (duration > 0L) {
-                                    packageMap[pkg] = (packageMap[pkg] ?: 0L) + duration
-                                }
-                                currentForegroundPkg = null
-                            }
-                        }
-                        UsageEvents.Event.SCREEN_NON_INTERACTIVE -> {
-                            if (currentForegroundPkg != null) {
-                                val duration = time - currentForegroundStart
-                                if (duration > 0L) {
-                                    packageMap[currentForegroundPkg!!] = (packageMap[currentForegroundPkg!!] ?: 0L) + duration
-                                }
-                                currentForegroundPkg = null
-                            }
-                        }
-                    }
-                }
-
-                // If an app is still open right now
-                if (currentForegroundPkg != null && now > currentForegroundStart) {
-                    val duration = now - currentForegroundStart
-                    if (duration > 0L) {
-                        packageMap[currentForegroundPkg!!] = (packageMap[currentForegroundPkg!!] ?: 0L) + duration
-                    }
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-
-            // 2. Cross-check / supplement with queryUsageStats STRICTLY filtered to apps used today
-            try {
-                val statsList = usageStatsManager.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, startOfDay, now)
-                if (!statsList.isNullOrEmpty()) {
-                    for (stat in statsList) {
-                        val pkg = stat.packageName ?: continue
-                        // MUST be used today (after startOfDay)
-                        if (stat.lastTimeUsed >= startOfDay && stat.totalTimeInForeground > 1000L) {
-                            val current = packageMap[pkg] ?: 0L
-                            val bounded = minOf(stat.totalTimeInForeground, elapsedToday)
-                            packageMap[pkg] = maxOf(current, bounded)
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
+            // Primary accurate source: UsageEvents strictly within [startOfDay, now]
+            val packageMap = getForegroundUsageByPackage(context, startOfDay, now)
 
             val validApps = mutableListOf<AppUsageInfo>()
             var gamesTotalMillis = 0L
@@ -507,7 +555,7 @@ object AwayTimeManager {
             var totalForegroundMillis = 0L
 
             for ((pkg, duration) in packageMap) {
-                if (pkg == context.packageName || pkg == "com.android.systemui") continue
+                if (pkg == context.packageName || pkg == "com.android.systemui" || pkg == "android") continue
                 if (homePackages.contains(pkg)) continue
                 if (imePackages.contains(pkg)) continue
 
@@ -600,24 +648,38 @@ object AwayTimeManager {
             val finalTotalScreenMillis = topAppsSum.coerceIn(0L, elapsedToday)
             val otherMillis = 0L
 
-            // Calculate yesterday comparison
+            // Calculate yesterday comparison accurately via events
             var yesterdayScreenMillis = 0L
             try {
                 val yesterdayStart = startOfDay - DAY_MILLIS
                 val yesterdayEnd = startOfDay - 1000L
-                val yesterdayStats = usageStatsManager.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, yesterdayStart, yesterdayEnd)
-                val yesterdayPkgMap = mutableMapOf<String, Long>()
-                if (!yesterdayStats.isNullOrEmpty()) {
-                    for (stat in yesterdayStats) {
-                        if (stat.totalTimeInForeground > 3000L && stat.lastTimeUsed >= yesterdayStart) {
-                            if (stat.packageName != context.packageName && stat.packageName != "com.android.systemui") {
-                                val cur = yesterdayPkgMap[stat.packageName] ?: 0L
-                                yesterdayPkgMap[stat.packageName] = maxOf(cur, stat.totalTimeInForeground)
+                val yesterdayPkgMap = getForegroundUsageByPackage(context, yesterdayStart, yesterdayEnd)
+                val filteredYesterday = yesterdayPkgMap.filter { (pkg, duration) ->
+                    pkg != context.packageName &&
+                    pkg != "com.android.systemui" &&
+                    pkg != "android" &&
+                    !homePackages.contains(pkg) &&
+                    !imePackages.contains(pkg) &&
+                    duration >= 3000L
+                }
+                if (filteredYesterday.isNotEmpty()) {
+                    yesterdayScreenMillis = filteredYesterday.values.sum().coerceIn(0L, DAY_MILLIS)
+                } else {
+                    // Fallback to queryUsageStats if events pruned
+                    val yesterdayStats = usageStatsManager.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, yesterdayStart, yesterdayEnd)
+                    val fallbackMap = mutableMapOf<String, Long>()
+                    if (!yesterdayStats.isNullOrEmpty()) {
+                        for (stat in yesterdayStats) {
+                            if (stat.totalTimeInForeground > 3000L && stat.lastTimeUsed >= yesterdayStart) {
+                                if (stat.packageName != context.packageName && stat.packageName != "com.android.systemui") {
+                                    val cur = fallbackMap[stat.packageName] ?: 0L
+                                    fallbackMap[stat.packageName] = maxOf(cur, stat.totalTimeInForeground)
+                                }
                             }
                         }
                     }
+                    yesterdayScreenMillis = fallbackMap.values.sum().coerceIn(0L, DAY_MILLIS)
                 }
-                yesterdayScreenMillis = yesterdayPkgMap.values.sum().coerceIn(0L, DAY_MILLIS)
             } catch (e: Exception) {}
 
             val baselineYesterday = if (yesterdayScreenMillis > 0L) yesterdayScreenMillis else (3 * 3600000L)
@@ -779,18 +841,34 @@ object AwayTimeManager {
                 val dayEnd = if (i == 0) now else (dayStart + DAY_MILLIS - 1000L)
                 val dayLabel = if (i == 0) "Today" else dayLabelFormat.format(cal.time)
 
-                val dayStats = usageStatsManager.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, dayStart, dayEnd)
-                val dayPkgMap = mutableMapOf<String, Long>()
-
-                if (!dayStats.isNullOrEmpty()) {
-                    for (stat in dayStats) {
-                        val pkg = stat.packageName ?: continue
-                        if (stat.totalTimeInForeground > 3_000L && stat.lastTimeUsed >= dayStart) {
-                            if (pkg == context.packageName || pkg == "com.android.systemui") continue
-                            if (homePackages.contains(pkg) || imePackages.contains(pkg)) continue
-                            val cur = dayPkgMap[pkg] ?: 0L
-                            dayPkgMap[pkg] = maxOf(cur, stat.totalTimeInForeground)
+                val dayRawMap = if (i == 0) {
+                    getForegroundUsageByPackage(context, dayStart, now)
+                } else {
+                    val eventsMap = getForegroundUsageByPackage(context, dayStart, dayEnd)
+                    if (eventsMap.isNotEmpty()) {
+                        eventsMap
+                    } else {
+                        val dayStats = usageStatsManager.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, dayStart, dayEnd)
+                        val fallbackMap = mutableMapOf<String, Long>()
+                        if (!dayStats.isNullOrEmpty()) {
+                            for (stat in dayStats) {
+                                val pkg = stat.packageName ?: continue
+                                if (stat.totalTimeInForeground > 3_000L && stat.lastTimeUsed >= dayStart) {
+                                    val cur = fallbackMap[pkg] ?: 0L
+                                    fallbackMap[pkg] = maxOf(cur, stat.totalTimeInForeground)
+                                }
+                            }
                         }
+                        fallbackMap
+                    }
+                }
+
+                val dayPkgMap = mutableMapOf<String, Long>()
+                for ((pkg, duration) in dayRawMap) {
+                    if (pkg == context.packageName || pkg == "com.android.systemui" || pkg == "android") continue
+                    if (homePackages.contains(pkg) || imePackages.contains(pkg)) continue
+                    if (duration >= 3000L) {
+                        dayPkgMap[pkg] = duration
                     }
                 }
 

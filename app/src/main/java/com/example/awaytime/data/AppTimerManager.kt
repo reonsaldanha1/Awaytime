@@ -121,9 +121,6 @@ object AppTimerManager {
             return usageCache[packageName] ?: 0L
         }
 
-        val usageStatsManager = context.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager
-            ?: return usageCache[packageName] ?: 0L
-
         val calendar = Calendar.getInstance()
         calendar.set(Calendar.HOUR_OF_DAY, 0)
         calendar.set(Calendar.MINUTE, 0)
@@ -131,46 +128,11 @@ object AppTimerManager {
         calendar.set(Calendar.MILLISECOND, 0)
         val startOfDay = calendar.timeInMillis
 
-        var duration = 0L
-        try {
-            val events = usageStatsManager.queryEvents(startOfDay, now)
-            val event = UsageEvents.Event()
-            var lastStart = 0L
-            var inForeground = false
-            while (events.hasNextEvent()) {
-                events.getNextEvent(event)
-                if (event.packageName == packageName) {
-                    if (event.eventType == UsageEvents.Event.ACTIVITY_RESUMED ||
-                        event.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND) {
-                        lastStart = event.timeStamp
-                        inForeground = true
-                    } else if (event.eventType == UsageEvents.Event.ACTIVITY_PAUSED ||
-                        event.eventType == UsageEvents.Event.ACTIVITY_STOPPED ||
-                        event.eventType == UsageEvents.Event.MOVE_TO_BACKGROUND) {
-                        if (inForeground && lastStart > 0L) {
-                            val d = event.timeStamp - lastStart
-                            if (d > 0L) duration += d
-                        }
-                        inForeground = false
-                        lastStart = 0L
-                    }
-                }
-            }
-            if (inForeground && lastStart > 0L && now > lastStart) {
-                duration += (now - lastStart)
-            }
-        } catch (e: Exception) {}
+        val usageMap = AwayTimeManager.getForegroundUsageByPackage(context, startOfDay, now)
+        val duration = usageMap[packageName] ?: 0L
 
-        try {
-            val stats = usageStatsManager.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, startOfDay, now)
-            val matchingStats = stats?.filter { it.packageName == packageName && it.lastTimeUsed >= startOfDay }
-            val statsSum = matchingStats?.sumOf { it.totalTimeInForeground } ?: 0L
-            if (statsSum > duration) {
-                duration = statsSum
-            }
-        } catch (e: Exception) {}
-
-        usageCache[packageName] = duration
+        usageCache.clear()
+        usageCache.putAll(usageMap)
         lastUsageCheckTime = now
         return duration
     }
@@ -179,8 +141,6 @@ object AppTimerManager {
         val pm = context.packageManager
         val timers = getAllTimers(context)
 
-        // Query today's usages in bulk
-        val usageStatsManager = context.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager
         val calendar = Calendar.getInstance()
         val now = calendar.timeInMillis
         calendar.set(Calendar.HOUR_OF_DAY, 0)
@@ -189,52 +149,7 @@ object AppTimerManager {
         calendar.set(Calendar.MILLISECOND, 0)
         val startOfDay = calendar.timeInMillis
 
-        val usageMap = mutableMapOf<String, Long>()
-        if (usageStatsManager != null) {
-            try {
-                val events = usageStatsManager.queryEvents(startOfDay, now)
-                val event = UsageEvents.Event()
-                var currentFg: String? = null
-                var currentFgStart = 0L
-                while (events.hasNextEvent()) {
-                    events.getNextEvent(event)
-                    val pkg = event.packageName ?: continue
-                    when (event.eventType) {
-                        UsageEvents.Event.ACTIVITY_RESUMED,
-                        UsageEvents.Event.MOVE_TO_FOREGROUND -> {
-                            if (currentFg != null && currentFg != pkg) {
-                                val d = event.timeStamp - currentFgStart
-                                if (d > 0L) usageMap[currentFg!!] = (usageMap[currentFg!!] ?: 0L) + d
-                            }
-                            currentFg = pkg
-                            currentFgStart = event.timeStamp
-                        }
-                        UsageEvents.Event.ACTIVITY_PAUSED,
-                        UsageEvents.Event.ACTIVITY_STOPPED,
-                        UsageEvents.Event.MOVE_TO_BACKGROUND -> {
-                            if (currentFg == pkg) {
-                                val d = event.timeStamp - currentFgStart
-                                if (d > 0L) usageMap[pkg] = (usageMap[pkg] ?: 0L) + d
-                                currentFg = null
-                            }
-                        }
-                    }
-                }
-                if (currentFg != null && now > currentFgStart) {
-                    usageMap[currentFg!!] = (usageMap[currentFg!!] ?: 0L) + (now - currentFgStart)
-                }
-            } catch (e: Exception) {}
-
-            try {
-                val stats = usageStatsManager.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, startOfDay, now)
-                stats?.forEach { stat ->
-                    val pkg = stat.packageName ?: return@forEach
-                    if (stat.lastTimeUsed >= startOfDay && stat.totalTimeInForeground > (usageMap[pkg] ?: 0L)) {
-                        usageMap[pkg] = stat.totalTimeInForeground
-                    }
-                }
-            } catch (e: Exception) {}
-        }
+        val usageMap = AwayTimeManager.getForegroundUsageByPackage(context, startOfDay, now)
 
         // Query all launchable apps
         val mainIntent = Intent(Intent.ACTION_MAIN, null).apply {
