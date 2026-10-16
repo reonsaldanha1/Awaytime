@@ -2,6 +2,9 @@ package com.example.awaytime.ui.main
 
 import android.content.Context
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -45,6 +48,7 @@ fun CustomizeWidgetScreen(
     var selectedFont by remember { mutableStateOf(prefs.widgetFont) }
     var isMinimalMode by remember { mutableStateOf(prefs.isMinimalMode) }
     var showTimeline by remember { mutableStateOf(prefs.showTimeline) }
+    var showTimelineLines by remember { mutableStateOf(prefs.showTimelineLines) }
     var showSparkle by remember { mutableStateOf(prefs.showSparkle) }
 
     fun applyChanges() {
@@ -52,6 +56,7 @@ fun CustomizeWidgetScreen(
         prefs.widgetFont = selectedFont
         prefs.isMinimalMode = isMinimalMode
         prefs.showTimeline = showTimeline
+        prefs.showTimelineLines = showTimelineLines
         prefs.showSparkle = showSparkle
         triggerWidgetUpdate(context)
     }
@@ -112,7 +117,7 @@ fun CustomizeWidgetScreen(
                     .fillMaxSize()
                     .verticalScroll(scrollState)
                     .padding(horizontal = 20.dp)
-                    .padding(bottom = 40.dp)
+                    .padding(bottom = 100.dp)
             ) {
                 Spacer(modifier = Modifier.height(10.dp))
 
@@ -132,6 +137,7 @@ fun CustomizeWidgetScreen(
                     font = selectedFont,
                     isMinimal = isMinimalMode,
                     showTimeline = showTimeline,
+                    showTimelineLines = showTimelineLines,
                     showSparkle = showSparkle
                 )
 
@@ -184,17 +190,14 @@ fun CustomizeWidgetScreen(
 
                         Spacer(modifier = Modifier.width(12.dp))
 
-                        Switch(
+                        SmoothToggleSwitch(
                             checked = isMinimalMode,
                             onCheckedChange = {
                                 isMinimalMode = it
                                 applyChanges()
                             },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = Color.Black,
-                                checkedTrackColor = Color.White,
-                                uncheckedTrackColor = Color(0xFF262A36)
-                            )
+                            activeTrackColor = Color.White,
+                            activeThumbColor = Color.Black
                         )
                     }
                 }
@@ -325,7 +328,7 @@ fun CustomizeWidgetScreen(
 
                 Spacer(modifier = Modifier.height(26.dp))
 
-                // 4. Widget Elements (Timeline Bar & Sparkle)
+                // 4. Widget Elements (Timeline Bar, Lines Toggle & Sparkle)
                 Text(
                     text = "WIDGET ELEMENTS",
                     color = TextMutedGray,
@@ -354,17 +357,50 @@ fun CustomizeWidgetScreen(
                                 Text("24-Hour Timeline Bar", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Medium)
                                 Text("Displays active screen intervals up to current hour", color = TextMutedGray, fontSize = 12.sp)
                             }
-                            Switch(
+                            SmoothToggleSwitch(
                                 checked = showTimeline,
                                 onCheckedChange = {
                                     showTimeline = it
                                     applyChanges()
                                 },
-                                colors = SwitchDefaults.colors(
-                                    checkedThumbColor = Color.White,
-                                    checkedTrackColor = if (isMinimalMode) Color.White else Color(selectedAccent.colorLong)
-                                )
+                                activeTrackColor = if (isMinimalMode) Color.White else Color(selectedAccent.colorLong),
+                                activeThumbColor = if (isMinimalMode) Color.Black else Color.White
                             )
+                        }
+
+                        AnimatedVisibility(
+                            visible = showTimeline,
+                            enter = fadeIn(tween(180)) + expandVertically(tween(220)),
+                            exit = fadeOut(tween(150)) + shrinkVertically(tween(200))
+                        ) {
+                            Column {
+                                Divider(color = DarkCardBorder, modifier = Modifier.padding(vertical = 12.dp))
+
+                                // Option to disable the various lines in the widget bar
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text("Bar Divider Lines & Markers", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                                        Text(
+                                            text = if (showTimelineLines) "Dividers & cursor active (turn off for solid bar)" else "Disabled (clean solid continuous progress bar)",
+                                            color = if (showTimelineLines) TextMutedGray else Color(0xFF69E094),
+                                            fontSize = 12.sp
+                                        )
+                                    }
+                                    SmoothToggleSwitch(
+                                        checked = showTimelineLines,
+                                        onCheckedChange = {
+                                            showTimelineLines = it
+                                            applyChanges()
+                                        },
+                                        activeTrackColor = if (isMinimalMode) Color.White else Color(selectedAccent.colorLong),
+                                        activeThumbColor = if (isMinimalMode) Color.Black else Color.White
+                                    )
+                                }
+                            }
                         }
 
                         Divider(color = DarkCardBorder, modifier = Modifier.padding(vertical = 12.dp))
@@ -377,24 +413,89 @@ fun CustomizeWidgetScreen(
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text("Sparkle Badge", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Medium)
-                                Text("8-point status star on corner", color = TextMutedGray, fontSize = 12.sp)
+                                Text("8-point accent star badge on corner", color = TextMutedGray, fontSize = 12.sp)
                             }
-                            Switch(
+                            SmoothToggleSwitch(
                                 checked = showSparkle,
                                 onCheckedChange = {
                                     showSparkle = it
                                     applyChanges()
                                 },
-                                colors = SwitchDefaults.colors(
-                                    checkedThumbColor = Color.White,
-                                    checkedTrackColor = if (isMinimalMode) Color.White else Color(selectedAccent.colorLong)
-                                )
+                                activeTrackColor = if (isMinimalMode) Color.White else Color(selectedAccent.colorLong),
+                                activeThumbColor = if (isMinimalMode) Color.Black else Color.White
                             )
                         }
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+fun SmoothToggleSwitch(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    activeTrackColor: Color = Color.White,
+    inactiveTrackColor: Color = Color(0xFF222530),
+    thumbColor: Color = Color.White,
+    activeThumbColor: Color = Color.Black
+) {
+    val trackWidth = 50.dp
+    val trackHeight = 28.dp
+    val thumbSize = 22.dp
+    val padding = 3.dp
+
+    val animatedProgress by animateFloatAsState(
+        targetValue = if (checked) 1f else 0f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
+        label = "switchProgress"
+    )
+
+    val currentTrackColor by animateColorAsState(
+        targetValue = if (!enabled) Color(0xFF1A1C24)
+                      else if (checked) activeTrackColor
+                      else inactiveTrackColor,
+        animationSpec = tween(durationMillis = 240, easing = FastOutSlowInEasing),
+        label = "trackColor"
+    )
+
+    val currentThumbColor by animateColorAsState(
+        targetValue = if (!enabled) Color(0xFF555A68)
+                      else if (checked) activeThumbColor
+                      else thumbColor,
+        animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing),
+        label = "thumbColor"
+    )
+
+    Box(
+        modifier = modifier
+            .width(trackWidth)
+            .height(trackHeight)
+            .clip(CircleShape)
+            .background(currentTrackColor)
+            .clickable(
+                enabled = enabled,
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null
+            ) {
+                onCheckedChange(!checked)
+            }
+            .padding(padding),
+        contentAlignment = Alignment.CenterStart
+    ) {
+        Box(
+            modifier = Modifier
+                .offset(x = (trackWidth - thumbSize - padding * 2) * animatedProgress)
+                .size(thumbSize)
+                .clip(CircleShape)
+                .background(currentThumbColor)
+        )
     }
 }
 
@@ -420,9 +521,14 @@ fun WidgetPreviewCard(
     font: WidgetFont,
     isMinimal: Boolean,
     showTimeline: Boolean,
+    showTimelineLines: Boolean,
     showSparkle: Boolean
 ) {
-    val activeColor = if (isMinimal) Color.White else Color(accent.colorLong)
+    val activeColor by animateColorAsState(
+        targetValue = if (isMinimal) Color.White else Color(accent.colorLong),
+        animationSpec = tween(durationMillis = 220),
+        label = "previewActiveColor"
+    )
     val (composeFontFamily, composeFontWeight) = getComposeFontFamilyAndWeight(font)
 
     Surface(
@@ -439,27 +545,63 @@ fun WidgetPreviewCard(
         Column(
             modifier = Modifier.padding(18.dp)
         ) {
-            // Timeline bar preview
-            if (showTimeline) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(30.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(if (isMinimal) Color(0xFF1C1D22) else Color(0xFF2A2B33))
-                ) {
-                    // Segment filled with accent/white
+            // Timeline bar preview with fluid animation
+            AnimatedVisibility(
+                visible = showTimeline,
+                enter = fadeIn(tween(200)) + expandVertically(tween(250)),
+                exit = fadeOut(tween(180)) + shrinkVertically(tween(220))
+            ) {
+                Column {
                     Box(
                         modifier = Modifier
-                            .fillMaxHeight()
-                            .fillMaxWidth(0.65f)
+                            .fillMaxWidth()
+                            .height(30.dp)
                             .clip(RoundedCornerShape(12.dp))
-                            .background(activeColor)
-                    )
+                            .background(if (isMinimal) Color(0xFF1C1D22) else Color(0xFF2A2B33))
+                    ) {
+                        if (showTimelineLines) {
+                            // Segmented intervals with divider lines and cursor
+                            Row(modifier = Modifier.fillMaxSize()) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxHeight()
+                                        .weight(0.35f)
+                                        .background(activeColor)
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxHeight()
+                                        .width(2.dp)
+                                        .background(if (isMinimal) Color(0xFF1C1D22) else Color(0xFF2A2B33))
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxHeight()
+                                        .weight(0.30f)
+                                        .background(activeColor)
+                                )
+                                // Cursor marker line
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxHeight()
+                                        .width(3.dp)
+                                        .background(Color.White)
+                                )
+                                Spacer(modifier = Modifier.weight(0.35f))
+                            }
+                        } else {
+                            // Clean solid continuous progress fill without lines
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxHeight()
+                                    .fillMaxWidth(0.65f)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(activeColor)
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(20.dp))
                 }
-                Spacer(modifier = Modifier.height(20.dp))
-            } else {
-                Spacer(modifier = Modifier.height(10.dp))
             }
 
             // Bottom row with Away label, Away Time, and Sparkle
@@ -486,12 +628,16 @@ fun WidgetPreviewCard(
                     )
                 }
 
-                if (showSparkle) {
+                AnimatedVisibility(
+                    visible = showSparkle,
+                    enter = fadeIn(tween(200)) + scaleIn(spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessLow)),
+                    exit = fadeOut(tween(150)) + scaleOut(tween(150))
+                ) {
                     Icon(
                         painter = painterResource(id = R.drawable.ic_sparkle),
                         contentDescription = "Sparkle",
                         tint = activeColor,
-                        modifier = Modifier.size(26.dp)
+                        modifier = Modifier.size(28.dp)
                     )
                 }
             }

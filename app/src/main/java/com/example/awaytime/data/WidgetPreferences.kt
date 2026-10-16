@@ -39,6 +39,10 @@ class WidgetPreferences(context: Context) {
         get() = prefs.getBoolean("show_timeline", true)
         set(value) = prefs.edit().putBoolean("show_timeline", value).apply()
 
+    var showTimelineLines: Boolean
+        get() = prefs.getBoolean("show_timeline_lines", true)
+        set(value) = prefs.edit().putBoolean("show_timeline_lines", value).apply()
+
     var showSparkle: Boolean
         get() = prefs.getBoolean("show_sparkle", true)
         set(value) = prefs.edit().putBoolean("show_sparkle", value).apply()

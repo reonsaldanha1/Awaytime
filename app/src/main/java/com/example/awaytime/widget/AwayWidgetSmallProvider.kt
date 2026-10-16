@@ -94,17 +94,23 @@ class AwayWidgetSmallProvider : AppWidgetProvider() {
                     val timelineBitmap = TimelineBitmapHelper.generateTimelineBar(
                         intervals = stats.intervals,
                         accentColorInt = accentColorInt,
-                        bgContainerColor = if (isMinimal) 0xFF1C1D22.toInt() else 0xFF2A2B33.toInt()
+                        bgContainerColor = if (isMinimal) 0xFF1C1D22.toInt() else 0xFF2A2B33.toInt(),
+                        showLines = prefs.showTimelineLines,
+                        showCursor = prefs.showTimelineLines
                     )
                     views.setImageViewBitmap(R.id.iv_timeline, timelineBitmap)
                 } else {
                     views.setViewVisibility(R.id.iv_timeline, View.GONE)
                 }
 
-                // Sparkle icon visibility and accent tint
+                // Sparkle icon visibility and crisp anti-aliased bitmap rendering
                 if (prefs.showSparkle) {
                     views.setViewVisibility(R.id.iv_sparkle, View.VISIBLE)
-                    views.setInt(R.id.iv_sparkle, "setColorFilter", accentColorInt)
+                    val sparkleBitmap = WidgetSparkleBitmapHelper.createSparkleBitmap(
+                        sizePx = 72,
+                        colorInt = accentColorInt
+                    )
+                    views.setImageViewBitmap(R.id.iv_sparkle, sparkleBitmap)
                 } else {
                     views.setViewVisibility(R.id.iv_sparkle, View.GONE)
                 }

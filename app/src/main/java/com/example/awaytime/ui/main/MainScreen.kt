@@ -68,7 +68,7 @@ fun MainScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     val prefs = remember { WidgetPreferences(context) }
 
-    var currentTab by remember { mutableStateOf("Widget") }
+    var currentTab by remember { mutableStateOf("Home") }
 
     val items = listOf(
         WidgetCategoryItem("daily", "Dailyaway", "Track your time away from your phone", R.drawable.ic_timer, PastelBlue),
@@ -85,6 +85,19 @@ fun MainScreen(
         mutableStateOf<WidgetCategoryItem?>(
             if (!initialPage.isNullOrBlank()) items.firstOrNull { it.id == initialPage } else null
         )
+    }
+
+    BackHandler(enabled = selectedItem != null) {
+        selectedItem = null
+    }
+
+    LaunchedEffect(selectedItem) {
+        currentTab = when (selectedItem?.id) {
+            "customize", "themes" -> "Widget"
+            "permissions" -> "Settings"
+            null -> "Home"
+            else -> "Home"
+        }
     }
 
     var hasPermission by remember { mutableStateOf(AwayTimeManager.hasUsageStatsPermission(context)) }
@@ -161,9 +174,14 @@ fun MainScreen(
     }
 
     val homeAlpha by animateFloatAsState(
-        targetValue = if (selectedItem != null) 0.5f else 1f,
-        animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
+        targetValue = if (selectedItem != null) 0f else 1f,
+        animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing),
         label = "homeAlpha"
+    )
+    val homeScale by animateFloatAsState(
+        targetValue = if (selectedItem != null) 0.96f else 1f,
+        animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing),
+        label = "homeScale"
     )
 
     Box(
@@ -176,6 +194,8 @@ fun MainScreen(
                 .fillMaxSize()
                 .graphicsLayer {
                     alpha = homeAlpha
+                    scaleX = homeScale
+                    scaleY = homeScale
                 }
                 .padding(horizontal = 20.dp)
         ) {
@@ -220,25 +240,6 @@ fun MainScreen(
                 }
             }
         }
-
-        // Floating Bottom Navigation Bar: Widget & Settings
-        FloatingBottomBar(
-            currentTab = currentTab,
-            onTabSelected = { tab ->
-                currentTab = tab
-                if (tab == "Widget") {
-                    selectedItem = items.first { it.id == "customize" }
-                } else if (tab == "Settings") {
-                    selectedItem = items.first { it.id == "permissions" }
-                }
-            },
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .graphicsLayer {
-                    alpha = homeAlpha
-                }
-                .padding(bottom = 24.dp)
-        )
 
         // First-launch Usage Access Permission Dialog
         if (showPermissionDialog && !hasPermission) {
@@ -335,89 +336,117 @@ fun MainScreen(
             visible = selectedItem != null,
             enter = slideInHorizontally(
                 initialOffsetX = { fullWidth -> (fullWidth * 0.15f).toInt() },
-                animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing)
-            ) + fadeIn(animationSpec = tween(durationMillis = 180, easing = LinearOutSlowInEasing)),
+                animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing)
+            ) + fadeIn(animationSpec = tween(durationMillis = 200, easing = LinearOutSlowInEasing)),
             exit = slideOutHorizontally(
                 targetOffsetX = { fullWidth -> (fullWidth * 0.15f).toInt() },
-                animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing)
-            ) + fadeOut(animationSpec = tween(durationMillis = 160, easing = FastOutSlowInEasing))
+                animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing)
+            ) + fadeOut(animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing))
         ) {
-            when (selectedItem?.id) {
-                "daily" -> DailyWellbeingScreen(
-                    data = dailyWellbeingData,
-                    onDismiss = { selectedItem = null }
-                )
-                "weekly" -> WeeklyAwayScreen(
-                    data = weeklyAwayData,
-                    onDismiss = { selectedItem = null }
-                )
-                "customize", "themes" -> CustomizeWidgetScreen(
-                    prefs = prefs,
-                    onDismiss = { selectedItem = null }
-                )
-                "distractions" -> DistractionsScreen(
-                    onDismiss = { selectedItem = null },
-                    onNavigateToAppTimers = {
-                        selectedItem = items.firstOrNull { it.id == "app_timers" }
-                    }
-                )
-                "permissions" -> TrackingPermissionsScreen(
-                    onDismiss = { selectedItem = null }
-                )
-                "streaks", "focus" -> FocusStreaksScreen(
-                    todayStats = todayStats,
-                    onDismiss = { selectedItem = null }
-                )
-                "goals" -> DailyGoalsScreen(
-                    onDismiss = { selectedItem = null }
-                )
-                "app_timers" -> AppTimersScreen(
-                    onDismiss = { selectedItem = null }
-                )
-                else -> selectedItem?.let { item ->
-                    GenericConfigPage(
-                        item = item,
-                        prefs = prefs,
-                        todayStats = todayStats,
-                        weeklyStats = weeklyStats,
-                        hasPermission = hasPermission,
-                        selectedTheme = selectedTheme,
-                        selectedAccent = selectedAccent,
-                        showTimeline = showTimeline,
-                        showSparkle = showSparkle,
-                        targetHours = targetHours,
-                        onThemeChange = {
-                            selectedTheme = it
-                            prefs.theme = it
-                            triggerWidgetUpdate(context)
-                        },
-                        onAccentChange = {
-                            selectedAccent = it
-                            prefs.accent = it
-                            triggerWidgetUpdate(context)
-                        },
-                        onTimelineChange = {
-                            showTimeline = it
-                            prefs.showTimeline = it
-                            triggerWidgetUpdate(context)
-                        },
-                        onSparkleChange = {
-                            showSparkle = it
-                            prefs.showSparkle = it
-                            triggerWidgetUpdate(context)
-                        },
-                        onTargetHoursChange = {
-                            targetHours = it
-                            prefs.targetGoalHours = it
-                        },
-                        onRequestPermission = {
-                            openUsageAccessSettings(context)
-                        },
+            AnimatedContent(
+                targetState = selectedItem,
+                transitionSpec = {
+                    (fadeIn(animationSpec = tween(220, easing = FastOutSlowInEasing)) +
+                     scaleIn(initialScale = 0.98f, animationSpec = tween(220, easing = FastOutSlowInEasing)))
+                        .togetherWith(
+                            fadeOut(animationSpec = tween(180, easing = FastOutSlowInEasing))
+                        )
+                },
+                label = "pageContentTransition"
+            ) { currentItem ->
+                when (currentItem?.id) {
+                    "daily" -> DailyWellbeingScreen(
+                        data = dailyWellbeingData,
                         onDismiss = { selectedItem = null }
                     )
+                    "weekly" -> WeeklyAwayScreen(
+                        data = weeklyAwayData,
+                        onDismiss = { selectedItem = null }
+                    )
+                    "customize", "themes" -> CustomizeWidgetScreen(
+                        prefs = prefs,
+                        onDismiss = { selectedItem = null }
+                    )
+                    "distractions" -> DistractionsScreen(
+                        onDismiss = { selectedItem = null },
+                        onNavigateToAppTimers = {
+                            selectedItem = items.firstOrNull { it.id == "app_timers" }
+                        }
+                    )
+                    "permissions" -> TrackingPermissionsScreen(
+                        onDismiss = { selectedItem = null }
+                    )
+                    "streaks", "focus" -> FocusStreaksScreen(
+                        todayStats = todayStats,
+                        onDismiss = { selectedItem = null }
+                    )
+                    "goals" -> DailyGoalsScreen(
+                        onDismiss = { selectedItem = null }
+                    )
+                    "app_timers" -> AppTimersScreen(
+                        onDismiss = { selectedItem = null }
+                    )
+                    else -> currentItem?.let { item ->
+                        GenericConfigPage(
+                            item = item,
+                            prefs = prefs,
+                            todayStats = todayStats,
+                            weeklyStats = weeklyStats,
+                            hasPermission = hasPermission,
+                            selectedTheme = selectedTheme,
+                            selectedAccent = selectedAccent,
+                            showTimeline = showTimeline,
+                            showSparkle = showSparkle,
+                            targetHours = targetHours,
+                            onThemeChange = {
+                                selectedTheme = it
+                                prefs.theme = it
+                                triggerWidgetUpdate(context)
+                            },
+                            onAccentChange = {
+                                selectedAccent = it
+                                prefs.accent = it
+                                triggerWidgetUpdate(context)
+                            },
+                            onTimelineChange = {
+                                showTimeline = it
+                                prefs.showTimeline = it
+                                triggerWidgetUpdate(context)
+                            },
+                            onSparkleChange = {
+                                showSparkle = it
+                                prefs.showSparkle = it
+                                triggerWidgetUpdate(context)
+                            },
+                            onTargetHoursChange = {
+                                targetHours = it
+                                prefs.targetGoalHours = it
+                            },
+                            onRequestPermission = {
+                                openUsageAccessSettings(context)
+                            },
+                            onDismiss = { selectedItem = null }
+                        )
+                    }
                 }
             }
         }
+
+        // Floating Bottom Navigation Bar: Home, Widget & Settings
+        FloatingBottomBar(
+            currentTab = currentTab,
+            onTabSelected = { tab ->
+                currentTab = tab
+                when (tab) {
+                    "Home" -> selectedItem = null
+                    "Widget" -> selectedItem = items.first { it.id == "customize" }
+                    "Settings" -> selectedItem = items.first { it.id == "permissions" }
+                }
+            },
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 24.dp)
+        )
     }
 }
 
@@ -600,14 +629,22 @@ fun FloatingBottomBar(
             .clip(RoundedCornerShape(32.dp))
             .border(1.dp, CardStroke, RoundedCornerShape(32.dp)),
         color = BottomNavBg,
-        shadowElevation = 12.dp
+        shadowElevation = 16.dp
     ) {
         Row(
             modifier = Modifier
                 .padding(horizontal = 8.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
+            // Home Tab
+            BottomNavItem(
+                title = "Home",
+                iconRes = R.drawable.ic_home,
+                isSelected = currentTab == "Home",
+                onClick = { onTabSelected("Home") }
+            )
+
             // Widget Tab (opens Customize Widget)
             BottomNavItem(
                 title = "Widget",
@@ -616,7 +653,7 @@ fun FloatingBottomBar(
                 onClick = { onTabSelected("Widget") }
             )
 
-            // Settings Tab
+            // Settings Tab (opens Tracking & Permissions)
             BottomNavItem(
                 title = "Settings",
                 iconRes = R.drawable.ic_settings,
@@ -634,12 +671,44 @@ fun BottomNavItem(
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.93f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
+        label = "navItemScale"
+    )
+
+    val bgColor by animateColorAsState(
+        targetValue = if (isSelected) BottomNavActive else Color.Transparent,
+        animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing),
+        label = "navItemBg"
+    )
+
+    val contentColor by animateColorAsState(
+        targetValue = if (isSelected) TextPrimary else TextSecondary,
+        animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
+        label = "navItemColor"
+    )
+
     Box(
         modifier = Modifier
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
             .clip(RoundedCornerShape(24.dp))
-            .background(if (isSelected) BottomNavActive else Color.Transparent)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .background(bgColor)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            )
+            .padding(horizontal = 14.dp, vertical = 8.dp),
         contentAlignment = Alignment.Center
     ) {
         Row(
@@ -649,13 +718,13 @@ fun BottomNavItem(
             Icon(
                 painter = painterResource(id = iconRes),
                 contentDescription = title,
-                tint = if (isSelected) TextPrimary else TextSecondary,
+                tint = contentColor,
                 modifier = Modifier.size(18.dp)
             )
             Text(
                 text = title,
-                color = if (isSelected) TextPrimary else TextSecondary,
-                fontSize = 14.sp,
+                color = contentColor,
+                fontSize = 13.5.sp,
                 fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
             )
         }

@@ -143,7 +143,7 @@ fun AppTimersScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(horizontal = 20.dp),
-                contentPadding = PaddingValues(bottom = 36.dp),
+                contentPadding = PaddingValues(bottom = 100.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 // Header Banner / Status Card

@@ -128,7 +128,7 @@ fun TrackingPermissionsScreen(
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 20.dp)
-                    .padding(bottom = 36.dp),
+                    .padding(bottom = 100.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Spacer(modifier = Modifier.height(4.dp))

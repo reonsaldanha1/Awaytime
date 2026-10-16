@@ -138,7 +138,7 @@ fun WeeklyAwayScreen(
                     .fillMaxSize()
                     .verticalScroll(scrollState)
                     .padding(horizontal = 20.dp)
-                    .padding(bottom = 36.dp)
+                    .padding(bottom = 100.dp)
             ) {
                 Spacer(modifier = Modifier.height(10.dp))
 

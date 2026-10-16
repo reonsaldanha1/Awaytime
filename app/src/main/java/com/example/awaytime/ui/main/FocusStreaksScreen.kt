@@ -166,7 +166,7 @@ fun FocusStreaksScreen(
                     .fillMaxSize()
                     .verticalScroll(scrollState)
                     .padding(horizontal = 20.dp)
-                    .padding(bottom = 36.dp),
+                    .padding(bottom = 100.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
                 Spacer(modifier = Modifier.height(4.dp))

@@ -53,8 +53,17 @@ class AwayWidgetWeeklyProvider : AppWidgetProvider() {
                 val bgRes = if (isMinimal) R.drawable.bg_widget_weekly_minimal else R.drawable.bg_widget_weekly
                 views.setInt(R.id.widget_weekly_root, "setBackgroundResource", bgRes)
 
-                // Sparkle tint
-                views.setInt(R.id.iv_weekly_sparkle, "setColorFilter", accentColorInt)
+                // Sparkle icon
+                if (prefs.showSparkle) {
+                    views.setViewVisibility(R.id.iv_weekly_sparkle, View.VISIBLE)
+                    val sparkleBitmap = WidgetSparkleBitmapHelper.createSparkleBitmap(
+                        sizePx = 64,
+                        colorInt = accentColorInt
+                    )
+                    views.setImageViewBitmap(R.id.iv_weekly_sparkle, sparkleBitmap)
+                } else {
+                    views.setViewVisibility(R.id.iv_weekly_sparkle, View.GONE)
+                }
 
                 // Font styling
                 val font = prefs.widgetFont

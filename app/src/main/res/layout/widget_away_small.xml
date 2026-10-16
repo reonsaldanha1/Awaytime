@@ -27,6 +27,7 @@
         android:layout_height="wrap_content">
 
         <LinearLayout
+            android:id="@+id/ll_away_details"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_alignParentStart="true"
@@ -63,12 +64,10 @@
 
         <ImageView
             android:id="@+id/iv_sparkle"
-            android:layout_width="26dp"
-            android:layout_height="26dp"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
             android:layout_alignParentEnd="true"
-            android:layout_alignParentBottom="true"
-            android:layout_marginBottom="4dp"
-            android:src="@drawable/ic_sparkle"
+            android:layout_centerVertical="true"
             android:contentDescription="Away Sparkle Icon" />
 
     </RelativeLayout>
