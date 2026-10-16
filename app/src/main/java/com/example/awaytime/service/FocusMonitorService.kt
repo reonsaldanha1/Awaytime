@@ -161,20 +161,29 @@ class FocusMonitorService : Service() {
         lastBlockedPkg = null
     }
 
+    private var lastFocusLaunchTime = 0L
+    private var lastDistractionLaunchTime = 0L
+    private var lastAppLimitLaunchTime = 0L
+
     private fun showFocusRestrictionOverlay(packageName: String) {
-        if (FocusSessionManager.canDrawOverlays(this)) {
-            if (!isOverlayAttached) {
-                attachOverlayView(OverlayMode.FOCUS)
-            } else {
-                updateOverlayContent(OverlayMode.FOCUS)
-            }
-        } else {
+        // Ensure no WindowManager overlay view is displayed so only the single warning screen is shown
+        hideRestrictionOverlay()
+
+        val now = System.currentTimeMillis()
+        if (now - lastFocusLaunchTime < 1000L && lastBlockedPkg == packageName) {
+            return
+        }
+        lastFocusLaunchTime = now
+
+        if (!FocusSessionManager.canDrawOverlays(this)) {
             kickToHomeAndNotify(packageName, isDistractionLock = false, timerMin = 0, usedMillis = 0, isFocus = true)
+            return
         }
 
         try {
             val intent = Intent(this, FocusBlockActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                putExtra(FocusBlockActivity.EXTRA_PACKAGE_NAME, packageName)
             }
             startActivity(intent)
         } catch (e: Exception) {
@@ -183,14 +192,17 @@ class FocusMonitorService : Service() {
     }
 
     private fun showDistractionLockRestriction(packageName: String) {
-        if (FocusSessionManager.canDrawOverlays(this)) {
-            if (!isOverlayAttached) {
-                attachOverlayView(OverlayMode.DISTRACTION_LOCK)
-            } else {
-                updateOverlayContent(OverlayMode.DISTRACTION_LOCK)
-            }
-        } else {
+        hideRestrictionOverlay()
+
+        val now = System.currentTimeMillis()
+        if (now - lastDistractionLaunchTime < 1000L && lastBlockedPkg == packageName) {
+            return
+        }
+        lastDistractionLaunchTime = now
+
+        if (!FocusSessionManager.canDrawOverlays(this)) {
             kickToHomeAndNotify(packageName, isDistractionLock = true, timerMin = 0, usedMillis = 0, isFocus = false)
+            return
         }
 
         try {
@@ -206,14 +218,17 @@ class FocusMonitorService : Service() {
     }
 
     private fun showAppLimitRestriction(packageName: String, timerMin: Int, usedMillis: Long) {
-        if (FocusSessionManager.canDrawOverlays(this)) {
-            if (!isOverlayAttached) {
-                attachOverlayView(OverlayMode.APP_LIMIT)
-            } else {
-                updateOverlayContent(OverlayMode.APP_LIMIT)
-            }
-        } else {
+        hideRestrictionOverlay()
+
+        val now = System.currentTimeMillis()
+        if (now - lastAppLimitLaunchTime < 1000L && lastBlockedPkg == packageName) {
+            return
+        }
+        lastAppLimitLaunchTime = now
+
+        if (!FocusSessionManager.canDrawOverlays(this)) {
             kickToHomeAndNotify(packageName, isDistractionLock = false, timerMin = timerMin, usedMillis = usedMillis, isFocus = false)
+            return
         }
 
         try {
